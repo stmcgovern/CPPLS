@@ -36,6 +36,7 @@ using namespace dealii::LinearAlgebraPETSc;
 #include <deal.II/dofs/dof_tools.h>
 
 #include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_values.h>
 
 #include <deal.II/numerics/data_out.h>
@@ -148,6 +149,11 @@ private:
   IndexSet locally_owned_dofs_LS;
   IndexSet locally_relevant_dofs_LS;
 
+  int degree_quad_data{2};
+  DoFHandler<dim> dof_handler_Q;
+  FE_DGQ<dim> fe_DGQ_Q;
+  IndexSet locally_owned_dofs_Q;
+
   // output stream where only mpi rank 0 output gets to stdout
   ConditionalOStream pcout;
 
@@ -214,6 +220,7 @@ private:
   // create appropriately sized vectors and matrices
   void setup_system_P();
   void setup_system_LS();
+  void setup_system_Q();
   void initial_conditions();
   void set_boundary_inlet();
   void get_boundary_values_LS(std::vector<unsigned int>& boundary_values_id_LS,
@@ -254,14 +261,17 @@ LayerMovementProblem<dim>::LayerMovementProblem(const CPPLS::Parameters& paramet
   , fe_P(degree_P)
   , fe_T(degree_T)
   , fe_LS(degree_LS)
+  , fe_DGQ_Q(degree_quad_data)
   , dof_handler_P(triangulation)
   , dof_handler_T(triangulation)
   , dof_handler_LS(triangulation)
+  , dof_handler_Q(triangulation)
   , pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator) == 0))
   , computing_timer(mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times)
   , time_step((parameters.stop_time - parameters.start_time)
               /parameters.n_time_steps)
   ,current_time {parameters.start_time}
+  ,final_time{parameters.stop_time}
   ,theta(parameters.theta)
 
         {};
@@ -315,17 +325,6 @@ void LayerMovementProblem<dim>::setup_system_P()
   old_rhs_P.reinit(locally_owned_dofs_P, mpi_communicator);
   old_rhs_P = 0;
 
-  //initialize
-  porosity.reinit(locally_owned_dofs_P, mpi_communicator);
-  old_porosity.reinit(locally_owned_dofs_P, mpi_communicator);
-  porosity=0.65;
-
-
-  locally_relevant_solution_Fx.reinit(locally_owned_dofs_P, locally_relevant_dofs_P, mpi_communicator);
-  locally_relevant_solution_Fx = 0;
-  locally_relevant_solution_Fy.reinit(locally_owned_dofs_P, locally_relevant_dofs_P, mpi_communicator);
-  locally_relevant_solution_Fy = 0;
-
 
   // constraints
 
@@ -352,6 +351,43 @@ void LayerMovementProblem<dim>::setup_system_P()
   mass_matrix_P.reinit(locally_owned_dofs_P, locally_owned_dofs_P, dsp, mpi_communicator);
 }
 
+
+template <int dim>
+void LayerMovementProblem<dim>::setup_system_Q()
+{
+  TimerOutput::Scope t(computing_timer, "setup_system_Q");
+
+  dof_handler_Q.distribute_dofs(fe_DGQ_Q);
+
+  pcout << std::endl
+        << "============Quad point data===============" << std::endl
+        << "Number of active cells: " << triangulation.n_global_active_cells() << std::endl
+        << "Number of degrees of freedom: " << dof_handler_Q.n_dofs() << std::endl
+        << std::endl;
+
+  locally_owned_dofs_Q = dof_handler_Q.locally_owned_dofs();
+  //DoFTools::extract_locally_relevant_dofs(dof_handler_P, locally_relevant_dofs_P);
+
+  //initialize
+  porosity.reinit(locally_owned_dofs_Q, mpi_communicator);
+  old_porosity.reinit(locally_owned_dofs_Q, mpi_communicator);
+  overburden.reinit(locally_owned_dofs_Q, mpi_communicator);
+  old_overburden.reinit(locally_owned_dofs_Q, mpi_communicator);
+  bulkdensity.reinit(locally_owned_dofs_Q, mpi_communicator);
+  porosity=0.65;
+
+
+  locally_relevant_solution_Fx.reinit(locally_owned_dofs_Q, mpi_communicator);
+  locally_relevant_solution_Fx = 0;
+  locally_relevant_solution_Fy.reinit(locally_owned_dofs_Q, mpi_communicator);
+  locally_relevant_solution_Fy = 0;
+
+
+
+
+}
+
+
 template <int dim>
 void LayerMovementProblem<dim>::setup_system_LS()
 {
@@ -360,7 +396,7 @@ void LayerMovementProblem<dim>::setup_system_LS()
   dof_handler_LS.distribute_dofs(fe_LS);
 
   pcout << std::endl
-        << "============Pressure===============" << std::endl
+        << "============LEVEL SETS===============" << std::endl
         << "Number of active cells: " << triangulation.n_global_active_cells() << std::endl
         << "Number of degrees of freedom: " << dof_handler_LS.n_dofs() << std::endl
         << std::endl;
@@ -464,12 +500,11 @@ void LayerMovementProblem<dim>::compute_bulkdensity()
   TimerOutput::Scope t(computing_timer, "compute_bulkdensity");
 
 
-  FE_Q<dim> fe(1);
   const QGauss<dim> quadrature_formula(3);
 
-  FEValues<dim> fe_values(fe, quadrature_formula, update_values | update_quadrature_points);
+  FEValues<dim> fe_values(fe_DGQ_Q, quadrature_formula, update_values | update_quadrature_points);
 
-  const unsigned int dofs_per_cell = fe.dofs_per_cell;
+  const unsigned int dofs_per_cell = fe_DGQ_Q.dofs_per_cell;
   const unsigned int n_q_points = quadrature_formula.size();
 
   // FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
@@ -482,17 +517,22 @@ void LayerMovementProblem<dim>::compute_bulkdensity()
 
   constraints_V.close();
 
-  for (auto cell : filter_iterators(dof_handler_P.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
+  for (auto cell : filter_iterators(dof_handler_Q.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
     fe_values.reinit(cell);
-    // query the local porosity - use constant for now
+
     const double rock_density = material_data.get_solid_density(cell->material_id());
 
     fe_values.get_function_values(porosity, porosity_at_quad);
 
-    for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-      bulkdensity_at_quad[q_point] =
+    for (unsigned int q_point = 0; q_point < n_q_points; ++q_point)
+      {
+//        for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+//          for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+
+         bulkdensity_at_quad[q_point] =
           porosity_at_quad[q_point] * material_data.fluid_density + (1 - porosity_at_quad[q_point]) * rock_density;
     }
+
     cell->get_dof_indices(local_dof_indices);
     constraints_V.distribute_local_to_global(bulkdensity_at_quad, local_dof_indices, bulkdensity);
   }
@@ -504,12 +544,11 @@ void LayerMovementProblem<dim>::compute_overburden()
 {
   TimerOutput::Scope t(computing_timer, "compute_overburden");
 
-  FE_Q<dim> fe(1);
   const QGauss<dim> quadrature_formula(3);
 
-  FEValues<dim> fe_values(fe, quadrature_formula, update_values | update_quadrature_points);
+  FEValues<dim> fe_values(fe_DGQ_Q, quadrature_formula, update_values | update_quadrature_points);
 
-  const unsigned int dofs_per_cell = fe.dofs_per_cell;
+  const unsigned int dofs_per_cell = fe_DGQ_Q.dofs_per_cell;
   const unsigned int n_q_points = quadrature_formula.size();
 
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
@@ -519,7 +558,7 @@ void LayerMovementProblem<dim>::compute_overburden()
 
   Point<dim> point_for_depth;
 
-  for (auto cell : filter_iterators(dof_handler_P.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
+  for (auto cell : filter_iterators(dof_handler_Q.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
 
     fe_values.reinit(cell);
 
@@ -527,7 +566,8 @@ void LayerMovementProblem<dim>::compute_overburden()
     fe_values.get_function_values(bulkdensity, bulkdensity_at_quad);
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
       point_for_depth = fe_values.quadrature_point(q_point);
-      overburden_at_quad[q_point] = /* material_data.g */ 9.81 * point_for_depth[2] * bulkdensity_at_quad[q_point];
+      //TODO: make dim independent p[1] p[2]
+      overburden_at_quad[q_point] = /* material_data.g */ 9.81 * point_for_depth[1] * bulkdensity_at_quad[q_point];
     }
     cell->get_dof_indices(local_dof_indices);
     constraints_V.distribute_local_to_global(overburden_at_quad, local_dof_indices, overburden);
@@ -541,12 +581,11 @@ void LayerMovementProblem<dim>::compute_porosity()
 {
   TimerOutput::Scope t(computing_timer, "compute_porosity");
 
-FE_Q<dim> fe(1);
 const QGauss<dim> quadrature_formula(3);
 
-FEValues<dim> fe_values(fe, quadrature_formula, update_values | update_quadrature_points);
-
-const unsigned int dofs_per_cell = fe.dofs_per_cell;
+FEValues<dim> fe_values_Q(fe_DGQ_Q, quadrature_formula, update_values | update_quadrature_points);
+FEValues<dim> fe_values_P(fe_P, quadrature_formula, update_values | update_quadrature_points);
+const unsigned int dofs_per_cell = fe_DGQ_Q.dofs_per_cell;
 const unsigned int n_q_points = quadrature_formula.size();
 
 std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
@@ -555,20 +594,33 @@ std::vector<double> pressure_at_quad(n_q_points);
 std::vector<double> overburden_at_quad(n_q_points);
 std::vector<double> porosity_at_quad(n_q_points);
 
-for (auto cell : filter_iterators(dof_handler_P.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
 
-  fe_values.reinit(cell);
+//use the pre c++11 notation, since we are iterating using two dof_handlers
+
+typename DoFHandler<dim>::active_cell_iterator
+    cell = dof_handler_P.begin_active(),
+    endc = dof_handler_P.end();
+typename DoFHandler<dim>::active_cell_iterator
+    cell_Q = dof_handler_Q.begin_active();
+
+//for (auto cell : filter_iterators(dof_handler_Q.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
+for (;cell!=endc; ++cell, ++cell_Q)
+  {
+    //assert that cell=cell_Q
+   // Assert
+  fe_values_Q.reinit(cell_Q);
+  fe_values_P.reinit(cell);
   const double initial_porosity = material_data.get_surface_porosity(cell->material_id());
   const double compaction_coefficient = material_data.get_compressibility_coefficient(cell->material_id());
 
   // fe_values.get_function_values(interface_LS, phi_at_quad);
-  fe_values.get_function_values(locally_relevant_solution_P, pressure_at_quad);
-  fe_values.get_function_values(overburden, overburden_at_quad);
+  fe_values_P.get_function_values(locally_relevant_solution_P, pressure_at_quad);
+  fe_values_Q.get_function_values(overburden, overburden_at_quad);
   for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
 
     porosity_at_quad[q_point] = CPPLS::porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity, compaction_coefficient) ;
   }
-  cell->get_dof_indices(local_dof_indices);
+  cell_Q->get_dof_indices(local_dof_indices);
   constraints_V.distribute_local_to_global(porosity_at_quad, local_dof_indices, porosity);
 }
 porosity.compress(VectorOperation::add);
@@ -883,6 +935,7 @@ void LayerMovementProblem<dim>::run()
   // common mesh
   setup_geometry();
   setup_system_P();
+  setup_system_Q();
   setup_system_LS();
   initial_conditions();
 
