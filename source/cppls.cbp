@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6"/>
+	<Project>
+		<Option title="source/cppls"/>
+		<Option makefile_is_custom="1"/>
+		<Option compiler="clang"/>
+		<Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\;CMake Files\..\..\..\;CMake Files\..\..\..\..\;CMake Files\..\..\..\..\Applications\;CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\;CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\;CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\;CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\lib\;CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\lib\cmake\;CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\lib\cmake\deal.II\;CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\share\;CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\share\deal.II\;CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\share\deal.II\macros\;"/>
+		<Build>
+			<Target title="all">
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 all"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="rebuild_cache">
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 rebuild_cache"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="edit_cache">
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 edit_cache"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="info">
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 info"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="strip_comments">
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 strip_comments"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="distclean">
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 distclean"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="debug">
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 debug"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="runclean">
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 runclean"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="run">
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 run"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="release">
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 release"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="sign">
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 sign"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="source/cppls">
+				<Option output="/Users/dhilbert/Develop/CPPLS/source/cppls" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="clang"/>
+				<Compiler>
+					<Add option="-DDEBUG"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/include/deal.II/bundled"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/Cellar/open-mpi/2.1.0/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/opt/eigen/include/eigen3"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.sdk/usr/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/opt/parmetis/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/opt/metis/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/include/oce"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 source/cppls"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="source/cppls/fast">
+				<Option output="/Users/dhilbert/Develop/CPPLS/source/cppls" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/Users/dhilbert/Develop/CPPLS"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="clang"/>
+				<Compiler>
+					<Add option="-DDEBUG"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/include/deal.II/bundled"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/Cellar/open-mpi/2.1.0/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/opt/eigen/include/eigen3"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.sdk/usr/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/opt/parmetis/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/opt/metis/include"/>
+					<Add directory="/Applications/deal.II-8.5-brew.app/Contents/Resources/brew/include/oce"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 source/cppls/fast"/>
+					<CompileFile command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -f &quot;/Users/dhilbert/Develop/CPPLS/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/source/cppls.cc">
+			<Option target="source/cppls"/>
+		</Unit>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\"/>
+		</Unit>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/../../../../Applications/deal.II-8.5-brew.app/Contents/Resources/lib/cmake/deal.II/deal.IIConfigVersion.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\lib\cmake\deal.II\"/>
+		</Unit>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/../../../../Applications/deal.II-8.5-brew.app/Contents/Resources/lib/cmake/deal.II/deal.IIConfig.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\lib\cmake\deal.II\"/>
+		</Unit>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/../../../../Applications/deal.II-8.5-brew.app/Contents/Resources/lib/cmake/deal.II/deal.IITargets.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\lib\cmake\deal.II\"/>
+		</Unit>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/../../../../Applications/deal.II-8.5-brew.app/Contents/Resources/lib/cmake/deal.II/deal.IITargets-debugrelease.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\lib\cmake\deal.II\"/>
+		</Unit>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/../../../../Applications/deal.II-8.5-brew.app/Contents/Resources/share/deal.II/macros/macro_deal_ii_add_test.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\share\deal.II\macros\"/>
+		</Unit>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/../../../../Applications/deal.II-8.5-brew.app/Contents/Resources/share/deal.II/macros/macro_deal_ii_initialize_cached_variables.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\share\deal.II\macros\"/>
+		</Unit>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/../../../../Applications/deal.II-8.5-brew.app/Contents/Resources/share/deal.II/macros/macro_deal_ii_invoke_autopilot.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\share\deal.II\macros\"/>
+		</Unit>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/../../../../Applications/deal.II-8.5-brew.app/Contents/Resources/share/deal.II/macros/macro_deal_ii_pickup_tests.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\share\deal.II\macros\"/>
+		</Unit>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/../../../../Applications/deal.II-8.5-brew.app/Contents/Resources/share/deal.II/macros/macro_deal_ii_query_git_information.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\share\deal.II\macros\"/>
+		</Unit>
+		<Unit filename="/Users/dhilbert/Develop/CPPLS/../../../../Applications/deal.II-8.5-brew.app/Contents/Resources/share/deal.II/macros/macro_deal_ii_setup_target.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\Applications\deal.II-8.5-brew.app\Contents\Resources\share\deal.II\macros\"/>
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>

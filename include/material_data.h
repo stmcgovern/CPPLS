@@ -5,17 +5,16 @@
 //For now define only 4 rock types
 //keep 0th entry for the basement
 
+#include <vector>
+
 namespace CPPLS
 {
   using namespace dealii;
 
-
-
-
     class MaterialData
       {
       public:
-        MaterialData (/*const unsigned int n_rock_types*/);
+       // MaterialData (/*const unsigned int n_rock_types*/);
 
 
         const double fluid_density{1000}; //pore fluid (water) density

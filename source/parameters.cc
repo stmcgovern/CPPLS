@@ -15,7 +15,7 @@ namespace CPPLS
       // ("outer_radius", "2.0", Patterns::Double(0.0), "Outer radius.");
       parameter_handler.declare_entry
       ("box_size", "1000",Patterns::Double(1000), "size of square domain" );
-      
+
     }
     parameter_handler.leave_subsection();
 
@@ -52,6 +52,9 @@ namespace CPPLS
       ("stop_time", "1.0", Patterns::Double(1.0), "Stop time.");
       parameter_handler.declare_entry
       ("n_time_steps", "1", Patterns::Integer(1), "Number of time steps.");
+       parameter_handler.declare_entry
+      ("theta", "0.5",Patterns::Double(0.5), "Theta-Scheme value 0 explicit, 1/2 CN, 1 implicit" );
+      
     }
     parameter_handler.leave_subsection();
 
@@ -102,6 +105,7 @@ namespace CPPLS
       start_time = parameter_handler.get_double("start_time");
       stop_time = parameter_handler.get_double("stop_time");
       n_time_steps = parameter_handler.get_integer("n_time_steps");
+      theta = parameter_handler.get_double("theta");
     }
     parameter_handler.leave_subsection();
 

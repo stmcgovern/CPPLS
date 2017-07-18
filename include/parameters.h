@@ -19,6 +19,7 @@ namespace CPPLS
   {
   public:
     double box_size;
+    double theta;
 
     double diffusion_coefficient;
     double reaction_coefficient;
