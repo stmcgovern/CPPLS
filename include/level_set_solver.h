@@ -114,7 +114,7 @@ class LevelSetSolver
 		    std::string ALGORITHM,
 		    const unsigned int TIME_INTEGRATION,
 		    parallel::distributed::Triangulation<dim> &triangulation,
-		    MPI_Comm &mpi_communicator);
+        MPI_Comm &mpi_communicator);
     ~LevelSetSolver();
     
   private:
@@ -280,7 +280,7 @@ LevelSetSolver<dim>::LevelSetSolver (const unsigned int degree_LS,
 				     std::string ALGORITHM,
 				     const unsigned int TIME_INTEGRATION,
 				     parallel::distributed::Triangulation<dim> &triangulation, 
-				     MPI_Comm &mpi_communicator)
+             MPI_Comm &mpi_communicator)
   :
   mpi_communicator (mpi_communicator),
   degree_LS(degree_LS),
@@ -394,7 +394,7 @@ void LevelSetSolver<dim>::get_unp1(PETScWrappers::MPI::Vector &unp1){unp1=this->
 // ------------------------------------------------------------------------------- //
 template <int dim>
 void LevelSetSolver<dim>::nth_time_step()
-{ 
+{
   assemble_EntRes_Matrix();
   // COMPUTE SOLUTION //
   if (TIME_INTEGRATION==FORWARD_EULER)
@@ -1547,7 +1547,7 @@ void LevelSetSolver<dim>::solve(const ConstraintMatrix &constraints,
   constraints.distribute (completely_distributed_solution);
   solver.solve (Matrix, completely_distributed_solution, rhs, *preconditioner);
   constraints.distribute (completely_distributed_solution);
-  if (verbose==true) pcout << "   Solved in " << solver_control.last_step() << " iterations." << std::endl;
+  if (verbose==true) pcout << " LS solved in " << solver_control.last_step() << " iterations." << std::endl;
 }
 
 template <int dim>

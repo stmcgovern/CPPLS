@@ -19,7 +19,7 @@ double porosity(const double pressure, const double overburden, const double ini
 }
 double permeability(const double porosity, const double initial_permeability, const double initial_porosity)
 {
-  return (initial_permeability * (1 - porosity) / (1 - initial_porosity));
+  return (initial_permeability * (1 - initial_porosity) / (1 - porosity));
 }
 
 
