@@ -1,0 +1,8 @@
+solu*
+CMakeCache*
+CMakeFiles*
+*.cmake
+*Makefile
+*dylib
+*user
+cppls
