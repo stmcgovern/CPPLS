@@ -170,7 +170,7 @@ private:
   ConstraintMatrix constraints_P;
   ConstraintMatrix constraints_T;
   ConstraintMatrix constraints_LS;
-  ConstraintMatrix constraints_V;
+  ConstraintMatrix constraints_Q;
 
   // FE Field Solution Vectors
 
@@ -379,6 +379,13 @@ void LayerMovementProblem<dim>::setup_system_Q()
   permeability.reinit(locally_owned_dofs_Q, mpi_communicator);
   permeability = 0;
   porosity = 0;
+
+
+
+  DoFTools::make_hanging_node_constraints(dof_handler_Q, constraints_Q);
+  constraints_Q.close();
+
+
 }
 
 template <int dim>
@@ -436,6 +443,8 @@ void LayerMovementProblem<dim>::setup_system_LS()
 template <int dim>
 void LayerMovementProblem<dim>::initial_conditions()
 {
+  //Precondition: the non/ghosted vectors have been initialized, and constraints closed
+
   // init condition for P
   completely_distributed_solution_P = 0;
   VectorTools::interpolate_boundary_values(dof_handler_P, /*top boundary*/ 1, ZeroFunction<dim>(), constraints_P);
@@ -517,8 +526,6 @@ void LayerMovementProblem<dim>::compute_bulkdensity()
 
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
-  constraints_V.close();
-
   for (auto cell : filter_iterators(dof_handler_Q.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
     fe_values.reinit(cell);
 
@@ -535,7 +542,7 @@ void LayerMovementProblem<dim>::compute_bulkdensity()
     }
 
     cell->get_dof_indices(local_dof_indices);
-    constraints_V.distribute_local_to_global(bulkdensity_at_quad, local_dof_indices, bulkdensity);
+    constraints_Q.distribute_local_to_global(bulkdensity_at_quad, local_dof_indices, bulkdensity);
   }
   bulkdensity.compress(VectorOperation::add);
 }
@@ -571,7 +578,7 @@ void LayerMovementProblem<dim>::compute_overburden()
       overburden_at_quad[q_point] = /* material_data.g */ 9.81 * point_for_depth[1] * bulkdensity_at_quad[q_point];
     }
     cell->get_dof_indices(local_dof_indices);
-    constraints_V.distribute_local_to_global(overburden_at_quad, local_dof_indices, overburden);
+    constraints_Q.distribute_local_to_global(overburden_at_quad, local_dof_indices, overburden);
   }
   overburden.compress(VectorOperation::add);
 }
@@ -622,8 +629,8 @@ void LayerMovementProblem<dim>::compute_porosity_and_permeability()
             CPPLS::permeability(porosity_at_quad[q_point], initial_permeability, initial_porosity);
       }
       cell_Q->get_dof_indices(local_dof_indices);
-      constraints_V.distribute_local_to_global(porosity_at_quad, local_dof_indices, porosity);
-      constraints_V.distribute_local_to_global(permeability_at_quad, local_dof_indices, permeability);
+      constraints_Q.distribute_local_to_global(porosity_at_quad, local_dof_indices, porosity);
+      constraints_Q.distribute_local_to_global(permeability_at_quad, local_dof_indices, permeability);
 
     } // local
   }   // cell loop
@@ -858,6 +865,7 @@ void LayerMovementProblem<dim>::solve_time_step_P()
 template <int dim>
 void LayerMovementProblem<dim>::compute_speed_function()
 {
+  TimerOutput::Scope t(computing_timer, "compute_speed_function");
 
   const QGauss<dim> quadrature_formula(3);
 
@@ -922,20 +930,17 @@ void LayerMovementProblem<dim>::compute_speed_function()
   locally_relevant_solution_Fy = completely_distributed_solution_Fy;
 }
 
-
 template <int dim>
 void LayerMovementProblem<dim>::prepare_next_time_step()
 {
-  old_porosity=porosity;
-  old_overburden=overburden;
-
-
-
+  old_porosity = porosity;
+  old_overburden = overburden;
 }
 
 template <int dim>
 void LayerMovementProblem<dim>::output_vectors()
 {
+  TimerOutput::Scope t(computing_timer, "output");
   DataOut<dim> data_out;
   data_out.attach_dof_handler(dof_handler_LS);
   data_out.add_data_vector(locally_relevant_solution_LS, "LS");
@@ -1007,9 +1012,13 @@ void LayerMovementProblem<dim>::run()
 
     // Level set computation
     // original level_set_solver.set_velocity(locally_relevant_solution_u, locally_relevant_solution_v);
+
+    {TimerOutput::Scope t(computing_timer, "LS");
+
     level_set_solver.set_velocity(locally_relevant_solution_Fx, locally_relevant_solution_Fy);
     level_set_solver.nth_time_step();
     level_set_solver.get_unp1(locally_relevant_solution_LS); // exposes interface vector
+    }
 
     //    if (get_output && time - (output_number)*output_time > 0)
     //      output_results();
