@@ -552,6 +552,8 @@ void LayerMovementProblem<dim>::compute_overburden()
 {
   TimerOutput::Scope t(computing_timer, "compute_overburden");
 
+  old_overburden=overburden;
+
   const QGauss<dim> quadrature_formula(3);
 
   FEValues<dim> fe_values(fe_DGQ_Q, quadrature_formula, update_values | update_quadrature_points);
@@ -587,6 +589,9 @@ template <int dim>
 void LayerMovementProblem<dim>::compute_porosity_and_permeability()
 {
   TimerOutput::Scope t(computing_timer, "compute_porosity and permeability");
+
+  old_porosity=porosity;
+
 
   const QGauss<dim> quadrature_formula(3);
 
@@ -933,8 +938,8 @@ void LayerMovementProblem<dim>::compute_speed_function()
 template <int dim>
 void LayerMovementProblem<dim>::prepare_next_time_step()
 {
-  old_porosity = porosity;
-  old_overburden = overburden;
+//  old_porosity = porosity;
+//  old_overburden = overburden;
 }
 
 template <int dim>
