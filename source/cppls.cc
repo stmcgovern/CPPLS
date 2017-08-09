@@ -243,7 +243,14 @@ private:
 
   void prepare_next_time_step();
 
-  void output_vectors();
+  void output_vectors_LS();
+  void output_vectors_P();
+  void display_vectors()
+  {
+    output_vectors_LS();
+    output_vectors_P();
+    output_number++;
+  }
 };
 
 // Constructor
@@ -272,6 +279,7 @@ LayerMovementProblem<dim>::LayerMovementProblem(const CPPLS::Parameters& paramet
   , time_step((parameters.stop_time - parameters.start_time) / parameters.n_time_steps)
   , current_time{parameters.start_time}
   , final_time{parameters.stop_time}
+  , output_number{0}
   , theta(parameters.theta)
 
         {};
@@ -456,6 +464,7 @@ void LayerMovementProblem<dim>::initial_conditions()
   VectorTools::interpolate(dof_handler_LS, Initial_LS<dim>(), completely_distributed_solution_LS);
   constraints_LS.distribute(completely_distributed_solution_LS);
   locally_relevant_solution_LS = completely_distributed_solution_LS;
+
 }
 
 // template <int dim>
@@ -917,7 +926,7 @@ void LayerMovementProblem<dim>::compute_speed_function()
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           cell_vector_x[i] = 0;
-          cell_vector_y[i] = (porosity_at_quad[q_point] - old_porosity_at_quad[q_point]) / time_step;
+          cell_vector_y[i] = -1;//(porosity_at_quad[q_point] - old_porosity_at_quad[q_point]) / time_step;
         }
 
         //      Fx_at_quad[q_point]=0;
@@ -943,15 +952,18 @@ void LayerMovementProblem<dim>::prepare_next_time_step()
 }
 
 template <int dim>
-void LayerMovementProblem<dim>::output_vectors()
+void LayerMovementProblem<dim>::output_vectors_LS()
 {
-  TimerOutput::Scope t(computing_timer, "output");
+  TimerOutput::Scope t(computing_timer, "output_LS");
   DataOut<dim> data_out;
   data_out.attach_dof_handler(dof_handler_LS);
   data_out.add_data_vector(locally_relevant_solution_LS, "LS");
+  data_out.add_data_vector(locally_relevant_solution_Fx, "Fx");
+  data_out.add_data_vector(locally_relevant_solution_Fy, "Fy");
+
   data_out.build_patches();
 
-  const std::string filename = ("sol_vectors-" + Utilities::int_to_string(output_number, 3) + "." +
+  const std::string filename = ("sol_LS_vectors-" + Utilities::int_to_string(output_number, 3) + "." +
                                 Utilities::int_to_string(triangulation.locally_owned_subdomain(), 4));
   std::ofstream output((filename + ".vtu").c_str());
   data_out.write_vtu(output);
@@ -959,13 +971,75 @@ void LayerMovementProblem<dim>::output_vectors()
   if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0) {
     std::vector<std::string> filenames;
     for (unsigned int i = 0; i < Utilities::MPI::n_mpi_processes(mpi_communicator); ++i)
-      filenames.push_back("sol_vectors-" + Utilities::int_to_string(output_number, 3) + "." +
+      filenames.push_back("sol_LS_vectors-" + Utilities::int_to_string(output_number, 3) + "." +
                           Utilities::int_to_string(i, 4) + ".vtu");
 
     std::ofstream master_output((filename + ".pvtu").c_str());
     data_out.write_pvtu_record(master_output, filenames);
   }
 }
+
+
+template <int dim>
+void LayerMovementProblem<dim>::output_vectors_P()
+{
+  TimerOutput::Scope t(computing_timer, "output_P");
+  //output_number++;
+  DataOut<dim> data_out;
+  data_out.attach_dof_handler(dof_handler_P);
+  data_out.add_data_vector(locally_relevant_solution_P, "P");
+  data_out.add_data_vector(old_locally_relevant_solution_P, "old_P");
+  //data_out.add_data_vector(locally_relevant_solution_Fy, "Fy");
+
+  data_out.build_patches();
+
+  const std::string filename = ("sol_P_vectors-" + Utilities::int_to_string(output_number, 3) + "." +
+                                Utilities::int_to_string(triangulation.locally_owned_subdomain(), 4));
+  std::ofstream output((filename + ".vtu").c_str());
+  data_out.write_vtu(output);
+
+  if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0) {
+    std::vector<std::string> filenames;
+    for (unsigned int i = 0; i < Utilities::MPI::n_mpi_processes(mpi_communicator); ++i)
+      filenames.push_back("sol_P_vectors-" + Utilities::int_to_string(output_number, 3) + "." +
+                          Utilities::int_to_string(i, 4) + ".vtu");
+
+    std::ofstream master_output((filename + ".pvtu").c_str());
+    data_out.write_pvtu_record(master_output, filenames);
+  }
+}
+//template <int dim>
+//void LayerMovementProblem<dim>::display_serially()
+//{
+//  const QGauss<dim> quadrature_formula(3);
+
+//  FEValues<dim> fe_values(fe_P, quadrature_formula,
+//                          update_values | update_gradients | update_quadrature_points | update_JxW_values);
+
+//  const unsigned int dofs_per_cell = fe_P.dofs_per_cell;
+//  const unsigned int n_q_points = quadrature_formula.size();
+
+
+//  std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+
+
+//  std::vector<double> vector_at_quad(n_q_points);
+
+//  for (auto cell : filter_iterators(dof_handler_P.active_cell_iterators(),
+//                                  IteratorFilters::LocallyOwnedCell())) {
+//    fe_values.reinit(cell);
+//    fe_values.get_function_values( locally_relevant_solution_P , vector_at_quad);
+
+////    for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
+////        vector_at_quad[q_point]=
+////      }
+
+
+
+//  }
+
+
+//}
 
 template <int dim>
 void LayerMovementProblem<dim>::run()
@@ -976,6 +1050,7 @@ void LayerMovementProblem<dim>::run()
   setup_system_Q();
   setup_system_LS();
   initial_conditions();
+  display_vectors();
 
   // at this point the p system and ls system should be ready for the time loop
 
@@ -1010,8 +1085,10 @@ void LayerMovementProblem<dim>::run()
 
     // assemble and solve for pressure
     assemble_matrices_P();
+
     forge_system_P();
     solve_time_step_P();
+
 
     compute_speed_function(); // set locally_relevant_solution_u/Fx, locally_relevant_solution_v/Fy
 
@@ -1027,6 +1104,9 @@ void LayerMovementProblem<dim>::run()
 
     //    if (get_output && time - (output_number)*output_time > 0)
     //      output_results();
+
+     display_vectors();
+    //output_vectors_Q();
     prepare_next_time_step();
   }
 }

@@ -51,7 +51,8 @@ double Initial_LS<dim>::value (const Point<dim> &p,
       break;}
     case 2:{
       double x=p[0]; double y=p[1];
-      return 0.5*(-std::tanh((y-0.3)/sharpness)*std::tanh((y-0.35)/sharpness)+1)*(-std::tanh((x-0.02)/sharpness)+1)-1;
+      std::cout<<std::tanh((y-1)/sharpness)<<" "<<std::endl;
+      return std::tanh((y-1)/sharpness);
       break;}
     case 3:{
       double x=p[0]; double y=p[1]; double z=p[2];
