@@ -34,7 +34,7 @@ template <int dim>
 class Initial_LS : public Function <dim>
 {
 public:
-  Initial_LS ( double sharpness=0.005) : Function<dim>(),
+  Initial_LS ( double sharpness=0.0005) : Function<dim>(),
                                                               sharpness(sharpness) {}
   virtual double value (const Point<dim> &p, const unsigned int component=0) const;
   double sharpness;

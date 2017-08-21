@@ -1032,27 +1032,26 @@ void LayerMovementProblem<dim>::output_vectors_Q()
   DataOut<dim> data_out;
   data_out.attach_dof_handler(dof_handler_Q);
   data_out.add_data_vector(permeability, "k");
-  data_out.add_data_vector(porosity, "phi");
+  data_out.add_data_vector(old_porosity, "phi");
   data_out.add_data_vector(overburden, "sigma");
 
   // data_out.add_data_vector(locally_relevant_solution_Fy, "Fy");
-  Vector<float> subdomain (triangulation.n_active_cells());
-      for (unsigned int i=0; i<subdomain.size(); ++i)
-        subdomain(i) = triangulation.locally_owned_subdomain();
+  Vector<float> subdomain(triangulation.n_active_cells());
+  for (unsigned int i = 0; i < subdomain.size(); ++i) {
+    subdomain(i) = triangulation.locally_owned_subdomain();
+  }
 
-      data_out.add_data_vector (subdomain, "subdomain");
+  data_out.add_data_vector(subdomain, "subdomain");
+  LA::MPI::Vector material_kind;
+  material_kind.reinit(locally_owned_dofs_Q,  mpi_communicator );
+  material_kind=0;
 
-      Vector<float> material_kind (triangulation.n_active_cells());
-  int i=0;
-  for ( auto cell : filter_iterators(dof_handler_P.active_cell_iterators(),
-                                    IteratorFilters::LocallyOwnedCell()))
-    {
-      material_kind(i) = static_cast<float> (cell->material_id());
-      ++i;
-
-    }
-  data_out.add_data_vector (material_kind, "material_kind");
-
+  int i = 0;
+  for (auto cell : filter_iterators(triangulation.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
+    material_kind(i) = static_cast<float>(cell->material_id());
+    ++i;
+  }
+  data_out.add_data_vector(material_kind, "material_kind");
 
   data_out.build_patches();
 
