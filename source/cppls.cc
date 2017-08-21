@@ -293,6 +293,7 @@ LayerMovementProblem<dim>::~LayerMovementProblem()
   dof_handler_P.clear();
   dof_handler_T.clear();
   dof_handler_LS.clear();
+  dof_handler_Q.clear();
 }
 
 //
