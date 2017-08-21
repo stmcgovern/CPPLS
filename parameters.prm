@@ -1,5 +1,5 @@
 subsection Geometry
-  set box_size = 1000
+  set box_size = 1
 end
 
 subsection Physical Parameters

@@ -1,6 +1,7 @@
 #ifndef dealii__cppls_physical_functions_h
 #define dealii__cppls_physical_functions_h
 
+#include "parameters.h"
 
 //Functions for the initial values and boundary values of pressure and level set
 //pressure initial is 0 and boundary is homogeneous dirichlet at top
@@ -50,9 +51,10 @@ double Initial_LS<dim>::value (const Point<dim> &p,
       Assert(false, ExcNotImplemented());
       break;}
     case 2:{
+        //TODO undo the hardcoded "box size"
       double x=p[0]; double y=p[1];
-      std::cout<<std::tanh((y-1)/sharpness)<<" "<<std::endl;
-      return std::tanh((y-1)/sharpness);
+      std::cout<<std::tanh((y- 0.9)/sharpness)<<" "<<std::endl;
+      return std::tanh((y-0.9)/sharpness);
       break;}
     case 3:{
       double x=p[0]; double y=p[1]; double z=p[2];

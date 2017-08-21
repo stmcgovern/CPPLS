@@ -245,10 +245,12 @@ private:
 
   void output_vectors_LS();
   void output_vectors_P();
+  void output_vectors_Q();
   void display_vectors()
   {
     output_vectors_LS();
     output_vectors_P();
+    output_vectors_Q();
     output_number++;
   }
 };
@@ -302,6 +304,9 @@ void LayerMovementProblem<dim>::setup_geometry()
   // GridGenerator::subdivided_hyper_rectangle(triangulation, 0, parameters.box_size);
   triangulation.refine_global(parameters.initial_refinement_level);
   print_mesh_info(triangulation, "my_grid");
+  for (auto cell : filter_iterators(triangulation.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
+    cell->set_material_id(0);
+  }
 }
 
 template <int dim>
@@ -343,7 +348,7 @@ void LayerMovementProblem<dim>::setup_system_P()
 
   DoFTools::make_hanging_node_constraints(dof_handler_P, constraints_P);
   // zero dirichlet at top
-  VectorTools::interpolate_boundary_values(dof_handler_P, 1, ZeroFunction<dim>(), constraints_P);
+  VectorTools::interpolate_boundary_values(dof_handler_P, 3, ZeroFunction<dim>(), constraints_P);
   constraints_P.close();
 
   // create sparsity pattern
@@ -386,14 +391,10 @@ void LayerMovementProblem<dim>::setup_system_Q()
 
   permeability.reinit(locally_owned_dofs_Q, mpi_communicator);
   permeability = 0;
-  porosity = 0;
-
-
+  porosity = 0.61;
 
   DoFTools::make_hanging_node_constraints(dof_handler_Q, constraints_Q);
   constraints_Q.close();
-
-
 }
 
 template <int dim>
@@ -451,11 +452,11 @@ void LayerMovementProblem<dim>::setup_system_LS()
 template <int dim>
 void LayerMovementProblem<dim>::initial_conditions()
 {
-  //Precondition: the non/ghosted vectors have been initialized, and constraints closed
+  // Precondition: the non/ghosted vectors have been initialized, and constraints closed
 
   // init condition for P
   completely_distributed_solution_P = 0;
-  VectorTools::interpolate_boundary_values(dof_handler_P, /*top boundary*/ 1, ZeroFunction<dim>(), constraints_P);
+  VectorTools::interpolate_boundary_values(dof_handler_P, /*top boundary*/ 3, ZeroFunction<dim>(), constraints_P);
   constraints_P.distribute(completely_distributed_solution_P);
   locally_relevant_solution_P = completely_distributed_solution_P;
 
@@ -464,7 +465,6 @@ void LayerMovementProblem<dim>::initial_conditions()
   VectorTools::interpolate(dof_handler_LS, Initial_LS<dim>(), completely_distributed_solution_LS);
   constraints_LS.distribute(completely_distributed_solution_LS);
   locally_relevant_solution_LS = completely_distributed_solution_LS;
-
 }
 
 // template <int dim>
@@ -502,10 +502,10 @@ void LayerMovementProblem<dim>::get_boundary_values_LS(std::vector<unsigned int>
   std::map<unsigned int, double> map_boundary_values_LS;
   unsigned int boundary_id = 0;
 
-  set_boundary_inlet();
+  // set_boundary_inlet();
   boundary_id = 10; // inlet
-  // we define the inlet to be at the top, i.e. boundary_id=1
-  VectorTools::interpolate_boundary_values(dof_handler_LS, 1, BoundaryPhi<dim>(1.0), map_boundary_values_LS);
+  // we define the inlet to be at the top, i.e. boundary_id=3
+  VectorTools::interpolate_boundary_values(dof_handler_LS, 3, BoundaryPhi<dim>(1.0), map_boundary_values_LS);
   boundary_values_id_LS.resize(map_boundary_values_LS.size());
   boundary_values_LS.resize(map_boundary_values_LS.size());
   std::map<unsigned int, double>::const_iterator boundary_value_LS = map_boundary_values_LS.begin();
@@ -561,7 +561,7 @@ void LayerMovementProblem<dim>::compute_overburden()
 {
   TimerOutput::Scope t(computing_timer, "compute_overburden");
 
-  old_overburden=overburden;
+  old_overburden = overburden;
 
   const QGauss<dim> quadrature_formula(3);
 
@@ -586,7 +586,7 @@ void LayerMovementProblem<dim>::compute_overburden()
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
       point_for_depth = fe_values.quadrature_point(q_point);
       // TODO: make dim independent p[1] p[2]
-      overburden_at_quad[q_point] = /* material_data.g */ 9.81 * point_for_depth[1] * bulkdensity_at_quad[q_point];
+      overburden_at_quad[q_point] = /* material_data.g */ 9.81 * (1 - point_for_depth[1]) * bulkdensity_at_quad[q_point];
     }
     cell->get_dof_indices(local_dof_indices);
     constraints_Q.distribute_local_to_global(overburden_at_quad, local_dof_indices, overburden);
@@ -599,8 +599,9 @@ void LayerMovementProblem<dim>::compute_porosity_and_permeability()
 {
   TimerOutput::Scope t(computing_timer, "compute_porosity and permeability");
 
-  old_porosity=porosity;
-
+  old_porosity = porosity;
+  porosity=0;
+  permeability=0;
 
   const QGauss<dim> quadrature_formula(3);
 
@@ -641,6 +642,8 @@ void LayerMovementProblem<dim>::compute_porosity_and_permeability()
                                                     initial_porosity, compaction_coefficient);
         permeability_at_quad[q_point] =
             CPPLS::permeability(porosity_at_quad[q_point], initial_permeability, initial_porosity);
+        Assert (porosity_at_quad[q_point] <1, ExcInternalError()) ;
+        Assert (permeability_at_quad[q_point] >0, ExcInternalError()) ;
       }
       cell_Q->get_dof_indices(local_dof_indices);
       constraints_Q.distribute_local_to_global(porosity_at_quad, local_dof_indices, porosity);
@@ -690,11 +693,11 @@ void LayerMovementProblem<dim>::setup_material_configuration()
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
       id_sum += LS_at_quad[q_point];
     }
-    if (id_sum < 0) {
-      cell->set_material_id(1);
+    if (id_sum <= 0) {
+      cell->set_material_id(0);
     }
     else {
-      cell->set_material_id(0);
+      cell->set_material_id(1);
     }
   }
 }
@@ -772,15 +775,16 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
             //          cell_rhs(i) += (right_hand_side.value(fe_values.quadrature_point(q_point)) *
             //                          fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
-            cell_rhs(i) += (rhs_at_quad * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
+             cell_rhs(i) += (rhs_at_quad * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
           }
         }
       }
-    }
 
-    cell->get_dof_indices(local_dof_indices);
-    constraints_P.distribute_local_to_global(cell_laplace_matrix, cell_rhs, local_dof_indices, laplace_matrix_P, rhs_P);
-    constraints_P.distribute_local_to_global(cell_mass_matrix, local_dof_indices, mass_matrix_P);
+      cell->get_dof_indices(local_dof_indices);
+      constraints_P.distribute_local_to_global(cell_laplace_matrix, cell_rhs, local_dof_indices, laplace_matrix_P,
+                                               rhs_P);
+      constraints_P.distribute_local_to_global(cell_mass_matrix, local_dof_indices, mass_matrix_P);
+    }
   }
 
   // Notice that the assembling above is just a local operation. So, to
@@ -904,6 +908,7 @@ void LayerMovementProblem<dim>::compute_speed_function()
   typename DoFHandler<dim>::active_cell_iterator cell = dof_handler_LS.begin_active(), endc = dof_handler_LS.end();
   typename DoFHandler<dim>::active_cell_iterator cell_Q = dof_handler_Q.begin_active();
 
+  completely_distributed_solution_Fy = 0;
   // for (auto cell : filter_iterators(dof_handler_P.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
   for (; cell != endc; ++cell, ++cell_Q) {
     // assert that cell=cell_Q
@@ -926,7 +931,7 @@ void LayerMovementProblem<dim>::compute_speed_function()
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           cell_vector_x[i] = 0;
-          cell_vector_y[i] = -1;//(porosity_at_quad[q_point] - old_porosity_at_quad[q_point]) / time_step;
+          cell_vector_y[i] = -0.1; //(porosity_at_quad[q_point] - old_porosity_at_quad[q_point]) / time_step;
         }
 
         //      Fx_at_quad[q_point]=0;
@@ -947,8 +952,8 @@ void LayerMovementProblem<dim>::compute_speed_function()
 template <int dim>
 void LayerMovementProblem<dim>::prepare_next_time_step()
 {
-//  old_porosity = porosity;
-//  old_overburden = overburden;
+  //  old_porosity = porosity;
+  //  old_overburden = overburden;
 }
 
 template <int dim>
@@ -960,6 +965,10 @@ void LayerMovementProblem<dim>::output_vectors_LS()
   data_out.add_data_vector(locally_relevant_solution_LS, "LS");
   data_out.add_data_vector(locally_relevant_solution_Fx, "Fx");
   data_out.add_data_vector(locally_relevant_solution_Fy, "Fy");
+  Vector<float> subdomain(triangulation.n_active_cells());
+  for (unsigned int i = 0; i < subdomain.size(); ++i)
+    subdomain(i) = triangulation.locally_owned_subdomain();
+  data_out.add_data_vector(subdomain, "subdomain");
 
   data_out.build_patches();
 
@@ -974,22 +983,27 @@ void LayerMovementProblem<dim>::output_vectors_LS()
       filenames.push_back("sol_LS_vectors-" + Utilities::int_to_string(output_number, 3) + "." +
                           Utilities::int_to_string(i, 4) + ".vtu");
 
-    std::ofstream master_output((filename + ".pvtu").c_str());
+    std::ofstream master_output(("sol_LS_vectors-" + Utilities::int_to_string(output_number, 3) + ".pvtu").c_str());
     data_out.write_pvtu_record(master_output, filenames);
   }
 }
 
+// TODO output material id
 
 template <int dim>
 void LayerMovementProblem<dim>::output_vectors_P()
 {
   TimerOutput::Scope t(computing_timer, "output_P");
-  //output_number++;
+  // output_number++;
   DataOut<dim> data_out;
   data_out.attach_dof_handler(dof_handler_P);
   data_out.add_data_vector(locally_relevant_solution_P, "P");
   data_out.add_data_vector(old_locally_relevant_solution_P, "old_P");
-  //data_out.add_data_vector(locally_relevant_solution_Fy, "Fy");
+  // data_out.add_data_vector(locally_relevant_solution_Fy, "Fy");
+  Vector<float> subdomain(triangulation.n_active_cells());
+  for (unsigned int i = 0; i < subdomain.size(); ++i)
+    subdomain(i) = triangulation.locally_owned_subdomain();
+  data_out.add_data_vector(subdomain, "subdomain");
 
   data_out.build_patches();
 
@@ -1004,42 +1018,58 @@ void LayerMovementProblem<dim>::output_vectors_P()
       filenames.push_back("sol_P_vectors-" + Utilities::int_to_string(output_number, 3) + "." +
                           Utilities::int_to_string(i, 4) + ".vtu");
 
-    std::ofstream master_output((filename + ".pvtu").c_str());
+    std::ofstream master_output(("sol_P_vectors-" + Utilities::int_to_string(output_number, 3) + ".pvtu").c_str());
     data_out.write_pvtu_record(master_output, filenames);
   }
 }
-//template <int dim>
-//void LayerMovementProblem<dim>::display_serially()
-//{
-//  const QGauss<dim> quadrature_formula(3);
 
-//  FEValues<dim> fe_values(fe_P, quadrature_formula,
-//                          update_values | update_gradients | update_quadrature_points | update_JxW_values);
+template <int dim>
+void LayerMovementProblem<dim>::output_vectors_Q()
+{
+  TimerOutput::Scope t(computing_timer, "output_Q");
+  // output_number++;
+  DataOut<dim> data_out;
+  data_out.attach_dof_handler(dof_handler_Q);
+  data_out.add_data_vector(permeability, "k");
+  data_out.add_data_vector(porosity, "phi");
+  data_out.add_data_vector(overburden, "sigma");
 
-//  const unsigned int dofs_per_cell = fe_P.dofs_per_cell;
-//  const unsigned int n_q_points = quadrature_formula.size();
+  // data_out.add_data_vector(locally_relevant_solution_Fy, "Fy");
+  Vector<float> subdomain (triangulation.n_active_cells());
+      for (unsigned int i=0; i<subdomain.size(); ++i)
+        subdomain(i) = triangulation.locally_owned_subdomain();
+
+      data_out.add_data_vector (subdomain, "subdomain");
+
+      Vector<float> material_kind (triangulation.n_active_cells());
+  int i=0;
+  for ( auto cell : filter_iterators(dof_handler_P.active_cell_iterators(),
+                                    IteratorFilters::LocallyOwnedCell()))
+    {
+      material_kind(i) = static_cast<float> (cell->material_id());
+      ++i;
+
+    }
+  data_out.add_data_vector (material_kind, "material_kind");
 
 
-//  std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+  data_out.build_patches();
 
+  const std::string filename = ("sol_Q_vectors-" + Utilities::int_to_string(output_number, 3) + "." +
+                                Utilities::int_to_string(triangulation.locally_owned_subdomain(), 4));
+  std::ofstream output((filename + ".vtu").c_str());
+  data_out.write_vtu(output);
 
-//  std::vector<double> vector_at_quad(n_q_points);
+  if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0) {
+    std::vector<std::string> filenames;
+    for (unsigned int i = 0; i < Utilities::MPI::n_mpi_processes(mpi_communicator); ++i)
+      filenames.push_back("sol_Q_vectors-" + Utilities::int_to_string(output_number, 3) + "." +
+                          Utilities::int_to_string(i, 4) + ".vtu");
 
-//  for (auto cell : filter_iterators(dof_handler_P.active_cell_iterators(),
-//                                  IteratorFilters::LocallyOwnedCell())) {
-//    fe_values.reinit(cell);
-//    fe_values.get_function_values( locally_relevant_solution_P , vector_at_quad);
-
-////    for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-////        vector_at_quad[q_point]=
-////      }
-
-
-
-//  }
-
-
-//}
+    std::ofstream master_output(("sol_Q_vectors-" + Utilities::int_to_string(output_number, 3) + ".pvtu").c_str());
+    data_out.write_pvtu_record(master_output, filenames);
+  }
+}
 
 template <int dim>
 void LayerMovementProblem<dim>::run()
@@ -1049,8 +1079,9 @@ void LayerMovementProblem<dim>::run()
   setup_system_P();
   setup_system_Q();
   setup_system_LS();
+
   initial_conditions();
-  display_vectors();
+  // display_vectors();
 
   // at this point the p system and ls system should be ready for the time loop
 
@@ -1059,8 +1090,8 @@ void LayerMovementProblem<dim>::run()
   const double cK = 1.0;
   const double cE = 1.0;
   const bool verbose = true;
-  std::string ALGORITHM = "MPP_uH";
-  const unsigned int TIME_INTEGRATION = 1; // corresponds to SSP33
+  std::string ALGORITHM = "MPP_u1";
+  const unsigned int TIME_INTEGRATION = 0; // corresponds to SSP33
   LevelSetSolver<dim> level_set_solver(degree_LS, degree_P, time_step, cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
                                        triangulation, mpi_communicator);
 
@@ -1068,6 +1099,14 @@ void LayerMovementProblem<dim>::run()
   // PressureEquation<dim> pressure_solver;
   // initialize temperature solver
   // TemperatureEquation<dim> temperature_solver;
+
+  // BOUNDARY CONDITIONS FOR PHI
+  get_boundary_values_LS(boundary_values_id_LS, boundary_values_LS);
+  level_set_solver.set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
+
+  // set INITIAL CONDITION within TRANSPORT PROBLEM
+  level_set_solver.initial_condition(locally_relevant_solution_LS, locally_relevant_solution_Fx,
+                                     locally_relevant_solution_Fy);
 
   //  // TIME STEPPING
   for (double timestep_number = 1, time = time_step; time <= final_time; time += time_step, ++timestep_number) {
@@ -1089,26 +1128,27 @@ void LayerMovementProblem<dim>::run()
     forge_system_P();
     solve_time_step_P();
 
-
     compute_speed_function(); // set locally_relevant_solution_u/Fx, locally_relevant_solution_v/Fy
 
     // Level set computation
     // original level_set_solver.set_velocity(locally_relevant_solution_u, locally_relevant_solution_v);
 
-    {TimerOutput::Scope t(computing_timer, "LS");
+    {
+      TimerOutput::Scope t(computing_timer, "LS");
 
-    level_set_solver.set_velocity(locally_relevant_solution_Fx, locally_relevant_solution_Fy);
-    level_set_solver.nth_time_step();
-    level_set_solver.get_unp1(locally_relevant_solution_LS); // exposes interface vector
+      level_set_solver.set_velocity(locally_relevant_solution_Fx, locally_relevant_solution_Fy);
+      level_set_solver.nth_time_step();
+      level_set_solver.get_unp1(locally_relevant_solution_LS); // exposes interface vector
     }
 
     //    if (get_output && time - (output_number)*output_time > 0)
     //      output_results();
 
-     display_vectors();
-    //output_vectors_Q();
+    display_vectors();
+    // output_vectors_Q();
     prepare_next_time_step();
-  }
+  } // end of time loop
+
 }
 
 } // end namespace CPPLS
@@ -1130,10 +1170,10 @@ int main(int argc, char* argv[])
     CPPLS::Parameters parameters;
     parameters.read_parameter_file("parameters.prm");
     CPPLS::MaterialData material_data;
-
+    {
     LayerMovementProblem<dim> run_layers(parameters, material_data);
     run_layers.run();
-
+    }
     auto t1 = std::chrono::high_resolution_clock::now();
     if (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0) {
       std::cout << "time elapsed: " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count()

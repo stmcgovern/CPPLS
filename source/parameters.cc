@@ -14,7 +14,7 @@ namespace CPPLS
       // parameter_handler.declare_entry
       // ("outer_radius", "2.0", Patterns::Double(0.0), "Outer radius.");
       parameter_handler.declare_entry
-      ("box_size", "1000",Patterns::Double(1000), "size of square domain" );
+      ("box_size", "1000",Patterns::Double(0.0), "size of square domain" );
 
     }
     parameter_handler.leave_subsection();
