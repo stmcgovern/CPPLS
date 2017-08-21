@@ -932,7 +932,7 @@ void LayerMovementProblem<dim>::compute_speed_function()
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           cell_vector_x[i] = 0;
-          cell_vector_y[i] = -0.1; //(porosity_at_quad[q_point] - old_porosity_at_quad[q_point]) / time_step;
+          cell_vector_y[i] =-0.01 + 0.05*(porosity_at_quad[q_point] - old_porosity_at_quad[q_point]) / time_step;
         }
 
         //      Fx_at_quad[q_point]=0;
@@ -1090,8 +1090,8 @@ void LayerMovementProblem<dim>::run()
   const double cK = 1.0;
   const double cE = 1.0;
   const bool verbose = true;
-  std::string ALGORITHM = "MPP_u1";
-  const unsigned int TIME_INTEGRATION = 0; // corresponds to SSP33
+  std::string ALGORITHM = "MPP_uH";
+  const unsigned int TIME_INTEGRATION = 1; // corresponds to SSP33
   LevelSetSolver<dim> level_set_solver(degree_LS, degree_P, time_step, cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
                                        triangulation, mpi_communicator);
 
