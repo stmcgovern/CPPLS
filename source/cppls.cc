@@ -1109,7 +1109,7 @@ void LayerMovementProblem<dim>::run()
                                      locally_relevant_solution_Fy);
 
   //  // TIME STEPPING
-  for (double timestep_number = 1, time = time_step; time <= final_time; time += time_step, ++timestep_number) {
+  for (int timestep_number = 1, time = time_step; time <= final_time; time += time_step, ++timestep_number) {
     pcout << "Time step " << timestep_number << " at t=" << time << std::endl;
 
     // TODO: put the level set solve first in the time loop like Octave
@@ -1143,8 +1143,10 @@ void LayerMovementProblem<dim>::run()
 
     //    if (get_output && time - (output_number)*output_time > 0)
     //      output_results();
-
-    display_vectors();
+  if(timestep_number%10==0)
+    {
+      display_vectors();
+    }
     // output_vectors_Q();
     prepare_next_time_step();
   } // end of time loop
