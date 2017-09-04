@@ -53,7 +53,7 @@ double Initial_LS<dim>::value (const Point<dim> &p,
     case 2:{
         //TODO undo the hardcoded "box size"
       double x=p[0]; double y=p[1];
-      std::cout<<std::tanh((y- 0.9)/sharpness)<<" "<<std::endl;
+      //std::cout<<std::tanh((y- 0.9)/sharpness)<<" "<<std::endl;
       return std::tanh((y-0.9)/sharpness);
       break;}
     case 3:{
