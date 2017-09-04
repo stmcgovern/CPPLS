@@ -1046,8 +1046,8 @@ void LayerMovementProblem<dim>::assemble_matrices_T()
       fe_values_Q.get_function_values(bulkheat_capacity, bulkheat_capacity_at_quad);
   //TODO
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-        const double diff_coeff_at_quad =10*
-            thermal_conductivity_at_quad[q_point] /(bulkheat_capacity_at_quad[q_point]*bulkdensity_at_quad[q_point] );
+        const double diff_coeff_at_quad =10;
+          //  thermal_conductivity_at_quad[q_point] /(bulkheat_capacity_at_quad[q_point]*bulkdensity_at_quad[q_point] );
         const double rhs_at_quad =0; //TODO bottom boundary flux from parameter file
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
