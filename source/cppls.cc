@@ -440,6 +440,8 @@ void LayerMovementProblem<dim>::setup_system_T()
   DoFTools::make_hanging_node_constraints(dof_handler_T, constraints_T);
   // zero dirichlet at top
   VectorTools::interpolate_boundary_values(dof_handler_T, 3, ZeroFunction<dim>(), constraints_T);
+  //Keep top at fixed temperature, TODO check compatibility condition
+  //VectorTools::interpolate_boundary_values(dof_handler_T, 3, ConstantFunction<dim>(20), constraints_T);
   constraints_T.close();
 
   // create sparsity pattern
