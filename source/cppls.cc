@@ -163,6 +163,7 @@ private:
   double current_time;
   double output_number;
   double final_time;
+  int timestep_number;
 
   // set timestepping scheme 1 implicit euler, 1/2 CN, 0 explicit euler
   const double theta;
@@ -174,15 +175,28 @@ private:
 
   // FE Field Solution Vectors
 
-  LA::MPI::Vector locally_relevant_solution_LS; // ls
-  LA::MPI::Vector old_locally_relevant_solution_LS;
+  LA::MPI::Vector locally_relevant_solution_LS_0; // ls
+  LA::MPI::Vector old_locally_relevant_solution_LS_0;
+
+  LA::MPI::Vector locally_relevant_solution_LS_1;
+  LA::MPI::Vector completely_distributed_solution_LS_1;
+
+  LA::MPI::Vector locally_relevant_solution_LS_2;
+  LA::MPI::Vector completely_distributed_solution_LS_2;
+
+  LA::MPI::Vector locally_relevant_solution_LS_3;
+  LA::MPI::Vector completely_distributed_solution_LS_3;
+
+
+
+
   LA::MPI::Vector locally_relevant_solution_P;
   LA::MPI::Vector old_locally_relevant_solution_P;
   LA::MPI::Vector locally_relevant_solution_T;
   LA::MPI::Vector old_locally_relevant_solution_T;
   LA::MPI::Vector locally_relevant_solution_Fx;
   LA::MPI::Vector locally_relevant_solution_Fy; // speed function
-  LA::MPI::Vector completely_distributed_solution_LS;
+  LA::MPI::Vector completely_distributed_solution_LS_0;
   LA::MPI::Vector completely_distributed_solution_P;
   LA::MPI::Vector completely_distributed_solution_T;
   LA::MPI::Vector completely_distributed_solution_f;
@@ -496,10 +510,24 @@ void LayerMovementProblem<dim>::setup_system_LS()
   DoFTools::extract_locally_relevant_dofs(dof_handler_LS, locally_relevant_dofs_LS);
 
   // vector setup
-  locally_relevant_solution_LS.reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
-  locally_relevant_solution_LS = 0;
+  locally_relevant_solution_LS_0.reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
+  locally_relevant_solution_LS_0 = 0;
 
-  completely_distributed_solution_LS.reinit(locally_owned_dofs_LS, mpi_communicator);
+  locally_relevant_solution_LS_1.reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
+  locally_relevant_solution_LS_1 = 0;
+
+  locally_relevant_solution_LS_2.reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
+  locally_relevant_solution_LS_2 = 0;
+
+
+  locally_relevant_solution_LS_3.reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
+  locally_relevant_solution_LS_3 = 0;
+
+
+  completely_distributed_solution_LS_0.reinit(locally_owned_dofs_LS, mpi_communicator);
+ completely_distributed_solution_LS_1.reinit(locally_owned_dofs_LS, mpi_communicator);
+  completely_distributed_solution_LS_2.reinit(locally_owned_dofs_LS, mpi_communicator);
+   completely_distributed_solution_LS_3.reinit(locally_owned_dofs_LS, mpi_communicator);
 
   // ghosted
   locally_relevant_solution_Fx.reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
@@ -550,10 +578,11 @@ void LayerMovementProblem<dim>::initial_conditions()
   locally_relevant_solution_T = completely_distributed_solution_T;
 
   // init condition for LS
-  completely_distributed_solution_LS = 0;
-  VectorTools::interpolate(dof_handler_LS, Initial_LS<dim>(), completely_distributed_solution_LS);
-  constraints_LS.distribute(completely_distributed_solution_LS);
-  locally_relevant_solution_LS = completely_distributed_solution_LS;
+  //all the others will share this
+  completely_distributed_solution_LS_0 = 0;
+  VectorTools::interpolate(dof_handler_LS, Initial_LS<dim>(), completely_distributed_solution_LS_0);
+  constraints_LS.distribute(completely_distributed_solution_LS_0);
+  locally_relevant_solution_LS_0 = completely_distributed_solution_LS_0;
 }
 
 // template <int dim>
@@ -781,7 +810,11 @@ void LayerMovementProblem<dim>::setup_material_configuration()
 
   //  std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
-  std::vector<double> LS_at_quad(n_q_points);
+  std::vector<double> LS0_at_quad(n_q_points);
+  std::vector<double> LS1_at_quad(n_q_points);
+   std::vector<double> LS2_at_quad(n_q_points);
+    std::vector<double> LS3_at_quad(n_q_points);
+
   // std::vector<double> bulkdensity_at_quad(n_q_points);
   // double eps= GridTools::minimal_cell_diameter(triangulation)/std::sqrt(2);
   //      const double eps=0.001;
@@ -795,22 +828,45 @@ void LayerMovementProblem<dim>::setup_material_configuration()
   //            H=phi/eps;
   //          diff_coeff=1000*(1+H)/2.+10*(1-H)/2.;
 
-  double id_sum{0};
+  //std::vector<double> id_sum(5);
+  double id_sum0{0};
+  double id_sum1{0};
+  double id_sum2{0};
+  double id_sum3{0};
+  //double id_sum4{0};
 
-  for (auto cell : filter_iterators(dof_handler_LS.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
-    id_sum = 0;
+  for (auto cell : filter_iterators(dof_handler_LS.active_cell_iterators(),
+                                    IteratorFilters::LocallyOwnedCell())) {
+    id_sum0=0;
+    id_sum1=0;
+    id_sum2=0;
+    id_sum3=0;
+    //id_sum4=0;
     fe_values.reinit(cell);
-    fe_values.get_function_values(locally_relevant_solution_LS, LS_at_quad);
+    fe_values.get_function_values(locally_relevant_solution_LS_0, LS0_at_quad);
+    fe_values.get_function_values(locally_relevant_solution_LS_1, LS1_at_quad);
+    fe_values.get_function_values(locally_relevant_solution_LS_2, LS2_at_quad);
+    fe_values.get_function_values(locally_relevant_solution_LS_3, LS3_at_quad);
+    //fe_values.get_function_values(locally_relevant_solution_LS_4, LS4_at_quad);
+
+
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-      id_sum += LS_at_quad[q_point];
+      id_sum0 += LS0_at_quad[q_point];
+      id_sum1 += LS1_at_quad[q_point];
+      id_sum2 += LS2_at_quad[q_point];
+      id_sum3 += LS3_at_quad[q_point];
+//      id_sum4 += LS4_at_quad[q_point];
+
     }
-    if (id_sum <= 0) {
-      cell->set_material_id(0);
-    }
+    if (id_sum0 <= 0){cell->set_material_id(0);}
+    else if (id_sum1 <= 0){cell->set_material_id(1);}
+    else if (id_sum2 <= 0){cell->set_material_id(2);}
+    else if (id_sum3 <= 0){cell->set_material_id(3);}
     else {
-      cell->set_material_id(1);
+        pcout<<"bad level set counting";
+      Assert(false, ExcNotImplemented());
     }
-  }
+  }// end cell loop
 }
 
 template <int dim>
@@ -1252,7 +1308,7 @@ void LayerMovementProblem<dim>::compute_speed_function()
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           cell_vector_x[i] = 0;
-          cell_vector_y[i] =-0.01 + 0.05*(porosity_at_quad[q_point] - old_porosity_at_quad[q_point]) / time_step;
+          cell_vector_y[i] =-0.02 + 0.05*(porosity_at_quad[q_point] - old_porosity_at_quad[q_point]) / time_step;
         }
 
         //      Fx_at_quad[q_point]=0;
@@ -1283,7 +1339,10 @@ void LayerMovementProblem<dim>::output_vectors_LS()
   TimerOutput::Scope t(computing_timer, "output_LS");
   DataOut<dim> data_out;
   data_out.attach_dof_handler(dof_handler_LS);
-  data_out.add_data_vector(locally_relevant_solution_LS, "LS");
+  data_out.add_data_vector(locally_relevant_solution_LS_0, "LS");
+   data_out.add_data_vector(locally_relevant_solution_LS_1, "LS_1");
+  data_out.add_data_vector(locally_relevant_solution_LS_2, "LS_2");
+  data_out.add_data_vector(locally_relevant_solution_LS_3, "LS_3");
   data_out.add_data_vector(locally_relevant_solution_Fx, "Fx");
   data_out.add_data_vector(locally_relevant_solution_Fy, "Fy");
   Vector<float> subdomain(triangulation.n_active_cells());
@@ -1447,7 +1506,14 @@ void LayerMovementProblem<dim>::run()
   const bool verbose = true;
   std::string ALGORITHM = "MPP_uH";
   const unsigned int TIME_INTEGRATION = 1; // corresponds to SSP33
-  LevelSetSolver<dim> level_set_solver(degree_LS, degree_P, time_step, cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
+  LevelSetSolver<dim> level_set_solver0(degree_LS, degree_P, time_step, cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
+                                       triangulation, mpi_communicator);
+
+  LevelSetSolver<dim> level_set_solver1(degree_LS, degree_P, time_step, cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
+                                       triangulation, mpi_communicator);
+  LevelSetSolver<dim> level_set_solver2(degree_LS, degree_P, time_step, cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
+                                       triangulation, mpi_communicator);
+  LevelSetSolver<dim> level_set_solver3(degree_LS, degree_P, time_step, cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
                                        triangulation, mpi_communicator);
 
   // initialize pressure solver
@@ -1457,14 +1523,24 @@ void LayerMovementProblem<dim>::run()
 
   // BOUNDARY CONDITIONS FOR PHI
   get_boundary_values_LS(boundary_values_id_LS, boundary_values_LS);
-  level_set_solver.set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
+  level_set_solver0.set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
+  level_set_solver1.set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
+  level_set_solver2.set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
+  level_set_solver3.set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
 
   // set INITIAL CONDITION within TRANSPORT PROBLEM
-  level_set_solver.initial_condition(locally_relevant_solution_LS, locally_relevant_solution_Fx,
+  level_set_solver0.initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Fx,
+                                     locally_relevant_solution_Fy);
+  level_set_solver1.initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Fx,
+                                     locally_relevant_solution_Fy);
+  level_set_solver2.initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Fx,
+                                     locally_relevant_solution_Fy);
+  level_set_solver3.initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Fx,
                                      locally_relevant_solution_Fy);
 
+
   //  // TIME STEPPING
-  int timestep_number = 1;
+  timestep_number = 1;
   for ( double time = time_step; time <= final_time; time += time_step, ++timestep_number) {
     pcout << "Time step " << timestep_number << " at t=" << time << std::endl;
 
@@ -1497,9 +1573,31 @@ void LayerMovementProblem<dim>::run()
     {
       TimerOutput::Scope t(computing_timer, "LS");
 
-      level_set_solver.set_velocity(locally_relevant_solution_Fx, locally_relevant_solution_Fy);
-      level_set_solver.nth_time_step();
-      level_set_solver.get_unp1(locally_relevant_solution_LS); // exposes interface vector
+      level_set_solver0.set_velocity(locally_relevant_solution_Fx, locally_relevant_solution_Fy);
+      level_set_solver0.nth_time_step();
+      level_set_solver0.get_unp1(locally_relevant_solution_LS_0); // exposes interface vector
+
+    if(timestep_number>50)
+      {
+        level_set_solver1.set_velocity(locally_relevant_solution_Fx, locally_relevant_solution_Fy);
+        level_set_solver1.nth_time_step();
+        level_set_solver1.get_unp1(locally_relevant_solution_LS_1); // exposes interface vector
+
+      }
+    if(timestep_number>125)
+      {
+        level_set_solver2.set_velocity(locally_relevant_solution_Fx, locally_relevant_solution_Fy);
+        level_set_solver2.nth_time_step();
+        level_set_solver2.get_unp1(locally_relevant_solution_LS_2); // exposes interface vector
+
+      }
+    if(timestep_number>170)
+          {
+            level_set_solver3.set_velocity(locally_relevant_solution_Fx, locally_relevant_solution_Fy);
+            level_set_solver3.nth_time_step();
+            level_set_solver3.get_unp1(locally_relevant_solution_LS_3); // exposes interface vector
+
+          }
     }
 
     //    if (get_output && time - (output_number)*output_time > 0)

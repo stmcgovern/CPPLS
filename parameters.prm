@@ -16,8 +16,8 @@ end
 
 subsection Time Step
   set start_time = 0.0
-  set stop_time = 1.0
-  set n_time_steps = 100
+  set stop_time = 2.0
+  set n_time_steps = 200
 end
 
 subsection Output
