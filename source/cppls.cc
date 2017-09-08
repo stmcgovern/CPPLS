@@ -924,7 +924,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
         const double diff_coeff_at_quad =
             (permeability_at_quad[q_point] / (porosity_at_quad[q_point] * material_data.fluid_viscosity));
-        const double rhs_at_quad = (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step;
+        const double rhs_at_quad = (overburden_at_quad[q_point] - old_overburden_at_quad[q_point] ) / time_step /*- 9.8*material_data.fluid_density*0.08*/;
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           for (unsigned int j = 0; j < dofs_per_cell; ++j) {
@@ -1267,7 +1267,7 @@ void LayerMovementProblem<dim>::compute_speed_function()
   const QGauss<dim> quadrature_formula(3);
 
   FEValues<dim> fe_values_LS(fe_LS, quadrature_formula, update_values | update_quadrature_points);
-  FEValues<dim> fe_values_Q(fe_DGQ_Q, quadrature_formula, update_values | update_quadrature_points);
+  FEValues<dim> fe_values_Q(fe_DGQ_Q, quadrature_formula, update_values | update_quadrature_points | update_gradients);
 
   const unsigned int dofs_per_cell = fe_LS.dofs_per_cell;
   const unsigned int n_q_points = quadrature_formula.size();
@@ -1276,6 +1276,9 @@ void LayerMovementProblem<dim>::compute_speed_function()
 
   std::vector<double> porosity_at_quad(n_q_points);
   std::vector<double> old_porosity_at_quad(n_q_points);
+  std::vector<Tensor<1, dim> > grad_porosity_at_quad(n_q_points);
+  //std::vector<Tensor<1, dim> > old_solution_gradients(n_q_points);
+
 
   //  std::vector<double> Fx_at_quad(n_q_points);
   //  std::vector<double> Fy_at_quad(n_q_points);
@@ -1303,6 +1306,7 @@ void LayerMovementProblem<dim>::compute_speed_function()
       // fe_values.get_function_values(interface_LS, phi_at_quad);
       fe_values_Q.get_function_values(porosity, porosity_at_quad);
       fe_values_Q.get_function_values(old_porosity, old_porosity_at_quad);
+      fe_values_Q.get_function_gradients(porosity, grad_porosity_at_quad);
 
       cell_vector_x = 0;
       cell_vector_y = 0;
@@ -1310,7 +1314,7 @@ void LayerMovementProblem<dim>::compute_speed_function()
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           cell_vector_x[i] = 0;
-          cell_vector_y[i] =-0.02 + 0.05*(porosity_at_quad[q_point] - old_porosity_at_quad[q_point]) / time_step;
+          cell_vector_y[i] =-0.02 +grad_porosity_at_quad[q_point]*grad_porosity_at_quad[q_point]; //std::abs(0.001*(porosity_at_quad[q_point] - old_porosity_at_quad[q_point])) / time_step;
         }
 
         //      Fx_at_quad[q_point]=0;
