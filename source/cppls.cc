@@ -2,6 +2,7 @@
 
 #include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/function.h>
+#include <deal.II/base/tensor_function.h>
 #include <deal.II/base/index_set.h>
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/parameter_handler.h>
@@ -22,6 +23,7 @@ using namespace dealii::LinearAlgebraPETSc;
 #include <deal.II/lac/constraint_matrix.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_cg.h>
+#include <deal.II/lac/solver_bicgstab.h>
 #include <deal.II/lac/sparsity_tools.h>
 
 //#include <deal.II/grid/tria.h>
@@ -172,7 +174,7 @@ private:
   ConstraintMatrix constraints_T;
   ConstraintMatrix constraints_LS;
   ConstraintMatrix constraints_Q;
-  ConstraintMatrix constraints_poisson;
+  ConstraintMatrix constraints_supg;
 
   // FE Field Solution Vectors
 
@@ -236,9 +238,9 @@ private:
   LA::MPI::SparseMatrix system_matrix_T;
 
 
-  LA::MPI::Vector poisson_solution;
-  LA::MPI::Vector poisson_rhs;
-  LA::MPI::SparseMatrix poisson_system_matrix;
+  LA::MPI::Vector supg_solution;
+  LA::MPI::Vector supg_rhs;
+  LA::MPI::SparseMatrix supg_system_matrix;
 
 
   // for boundary conditions
@@ -278,8 +280,8 @@ private:
   void compute_porosity_and_permeability();
   void compute_speed_function();
 
-  void setup_speed_function_poisson();
-  void solve_poisson();
+  void setup_speed_function_supg();
+  void solve_supg();
 
   void prepare_next_time_step();
 
@@ -1268,64 +1270,98 @@ void LayerMovementProblem<dim>::solve_time_step_T()
 
 
 template <int dim>
-void LayerMovementProblem<dim>::setup_speed_function_poisson()
+void LayerMovementProblem<dim>::setup_speed_function_supg()
 {
   //we use the fe space of P for now
 
-  poisson_solution.reinit(locally_owned_dofs_P, locally_relevant_dofs_P, mpi_communicator);
+  supg_solution.reinit(locally_owned_dofs_P, locally_relevant_dofs_P, mpi_communicator);
 
-  poisson_rhs.reinit(locally_owned_dofs_P, mpi_communicator);
+  supg_rhs.reinit(locally_owned_dofs_P, mpi_communicator);
 
 
   // constraints
 
-  constraints_poisson.clear();
+  constraints_supg.clear();
 
-  constraints_poisson.reinit(locally_relevant_dofs_P);
+  constraints_supg.reinit(locally_relevant_dofs_P);
 
-  DoFTools::make_hanging_node_constraints(dof_handler_P, constraints_poisson);
+  DoFTools::make_hanging_node_constraints(dof_handler_P, constraints_supg);
   // zero dirichlet at top
-  VectorTools::interpolate_boundary_values(dof_handler_P, 3, ConstantFunction<dim>(-0.2), constraints_poisson);
-  constraints_poisson.close();
+  VectorTools::interpolate_boundary_values(dof_handler_P, 3, ConstantFunction<dim>(-0.2), constraints_supg);
+  constraints_supg.close();
 
   // create sparsity pattern
 
   DynamicSparsityPattern dsp(locally_relevant_dofs_P);
 
-  DoFTools::make_sparsity_pattern(dof_handler_P, dsp, constraints_poisson, false);
+  DoFTools::make_sparsity_pattern(dof_handler_P, dsp, constraints_supg, false);
   SparsityTools::distribute_sparsity_pattern(dsp, dof_handler_P.n_locally_owned_dofs_per_processor(), mpi_communicator,
                                              locally_relevant_dofs_P);
   // setup matrices
 
-  poisson_system_matrix.reinit(locally_owned_dofs_P, locally_owned_dofs_P, dsp, mpi_communicator);
+  supg_system_matrix.reinit(locally_owned_dofs_P, locally_owned_dofs_P, dsp, mpi_communicator);
 
 }
 
 
 template <int dim>
-void LayerMovementProblem<dim>::solve_poisson()
+class AdvectionField : public TensorFunction<1,dim>
 {
-  TimerOutput::Scope t(computing_timer, "solve_poisson");
+public:
+  AdvectionField () : TensorFunction<1,dim> () {}
+  virtual Tensor<1,dim> value (const Point<dim> &p) const;
+  virtual void value_list (const std::vector<Point<dim> > &points,
+                           std::vector<Tensor<1,dim> >    &values) const;
+  DeclException2 (ExcDimensionMismatch,
+                  unsigned int, unsigned int,
+                  << "The vector has size " << arg1 << " but should have "
+                  << arg2 << " elements.");
+};
+template <int dim>
+Tensor<1,dim>
+AdvectionField<dim>::value (const Point<dim> &p) const
+{
+  Point<dim> value;
+  value[0] = 0;
+  value[1] = -1;
+  return value;
+}
+template <int dim>
+void
+AdvectionField<dim>::value_list (const std::vector<Point<dim> > &points,
+                                 std::vector<Tensor<1,dim> >    &values) const
+{
+  Assert (values.size() == points.size(),
+          ExcDimensionMismatch (values.size(), points.size()));
+  for (unsigned int i=0; i<points.size(); ++i)
+    values[i] = AdvectionField<dim>::value (points[i]);
+}
+
+
+template <int dim>
+void LayerMovementProblem<dim>::solve_supg()
+{
+  TimerOutput::Scope t(computing_timer, "solve_supg");
 
   LA::MPI::Vector completely_distributed_solution(locally_owned_dofs_P, mpi_communicator);
 
   SolverControl solver_control(dof_handler_P.n_dofs(), 1e-12);
-  LA::SolverCG solver(solver_control, mpi_communicator);
-
+  //LA::SolverBicgstab solver(solver_control, mpi_communicator);
+  LA::SolverGMRES solver(solver_control, mpi_communicator);
   LA::MPI::PreconditionAMG preconditioner;
 
   LA::MPI::PreconditionAMG::AdditionalData data;
 
-  data.symmetric_operator = true;
+  data.symmetric_operator = false;
   preconditioner.initialize(system_matrix_P, data);
 
-  solver.solve(poisson_system_matrix, completely_distributed_solution, poisson_rhs, preconditioner);
+  solver.solve(supg_system_matrix, completely_distributed_solution, supg_rhs, preconditioner);
 
-  pcout << " speed function poisson system solved in " << solver_control.last_step() << " iterations." << std::endl;
+  pcout << " speed function supg system solved in " << solver_control.last_step() << " iterations." << std::endl;
 
   constraints_P.distribute(completely_distributed_solution);
 
-  poisson_solution = completely_distributed_solution;
+  supg_solution = completely_distributed_solution;
 }
 
 
@@ -1333,14 +1369,19 @@ template <int dim>
 void LayerMovementProblem<dim>::compute_speed_function()
 {
   TimerOutput::Scope t(computing_timer, "compute_speed_function");
-
+  const AdvectionField<dim> advection_field;
   const QGauss<dim> quadrature_formula(3);
+  const QGauss<dim-1> face_quadrature_formula(3);
 
   FEValues<dim> fe_values_P(fe_P, quadrature_formula, update_values | update_quadrature_points | update_JxW_values | update_gradients);
   FEValues<dim> fe_values_Q(fe_DGQ_Q, quadrature_formula, update_values | update_quadrature_points | update_gradients);
+  FEFaceValues<dim> fe_face_values (fe_P, face_quadrature_formula,
+                                    update_values         | update_quadrature_points  |
+                                    update_normal_vectors | update_JxW_values);
 
   const unsigned int dofs_per_cell = fe_P.dofs_per_cell;
   const unsigned int n_q_points = quadrature_formula.size();
+  const unsigned int n_face_q_points = face_quadrature_formula.size();
 
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
@@ -1349,7 +1390,15 @@ void LayerMovementProblem<dim>::compute_speed_function()
   std::vector<Tensor<1, dim> > grad_porosity_at_quad(n_q_points);
   std::vector<Tensor<1, dim> > grad_old_porosity_at_quad(n_q_points);
   std::vector<double> rhs_at_quad(n_q_points);
+  std::vector<Tensor<1,dim> > advection_directions (n_q_points);
+  std::vector<Tensor<1,dim> > face_advection_directions (n_face_q_points);
 
+  advection_field.value_list (fe_values_P.get_quadrature_points(),
+                                  advection_directions);
+  std::vector<double> overburden_at_quad(n_q_points);
+  std::vector<double> old_overburden_at_quad(n_q_points);
+  std::vector<double> pressure_at_quad(n_q_points);
+  std::vector<double> old_pressure_at_quad(n_q_points);
 
 
   //  std::vector<double> Fx_at_quad(n_q_points);
@@ -1365,8 +1414,8 @@ void LayerMovementProblem<dim>::compute_speed_function()
   typename DoFHandler<dim>::active_cell_iterator cell_Q = dof_handler_Q.begin_active();
 
   completely_distributed_solution_Fy = 0;
-  poisson_rhs=0;
-  poisson_system_matrix=0;
+  supg_rhs=0;
+  supg_system_matrix=0;
   // for (auto cell : filter_iterators(dof_handler_P.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
   for (; cell != endc; ++cell, ++cell_Q) {
     // assert that cell=cell_Q
@@ -1380,50 +1429,100 @@ void LayerMovementProblem<dim>::compute_speed_function()
       fe_values_Q.reinit(cell_Q);
 
       // fe_values.get_function_values(interface_LS, phi_at_quad);
+
       fe_values_Q.get_function_values(porosity, porosity_at_quad);
       fe_values_Q.get_function_values(old_porosity, old_porosity_at_quad);
       fe_values_Q.get_function_gradients(porosity, grad_porosity_at_quad);
       fe_values_Q.get_function_gradients(old_porosity, grad_old_porosity_at_quad);
+      fe_values_P.get_function_values(locally_relevant_solution_P, pressure_at_quad);
+      fe_values_P.get_function_values(old_locally_relevant_solution_P, old_pressure_at_quad);
+      fe_values_Q.get_function_values(overburden, overburden_at_quad);
+      fe_values_Q.get_function_values(old_overburden, old_overburden_at_quad);
 
       cell_rhs=0;
       cell_matrix=0;
+      const double delta = 0.1 * cell->diameter();
 
 
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
           const double phi=porosity_at_quad[q_point];
-          const double dphidz=-1*std::abs(grad_porosity_at_quad[q_point][1]);
-          const double old_dphidz=-1*std::abs(grad_old_porosity_at_quad[q_point][1]);
-          const double dphidt=(porosity_at_quad[q_point]-old_porosity_at_quad[q_point])/time_step;
-          rhs_at_quad[q_point]=//0.2;//grad_porosity_at_quad[q_point][0];
-                               -1*( std::pow((1-phi), -2)*(-1*dphidz)*dphidt +
-                                std::pow((1-phi), -1)*(dphidz-old_dphidz)/time_step);
+
+          const double dVESdt=std::abs(((overburden_at_quad[q_point]-old_overburden_at_quad[q_point])
+                              -1*(pressure_at_quad[q_point]-old_pressure_at_quad[q_point]))/ time_step
+                              - material_data.fluid_density* 9.81* (0.2 ));
+
+          const double dphidt = (porosity_at_quad[q_point]-old_porosity_at_quad[q_point])/time_step;
+          rhs_at_quad[q_point]=-phi*material_data.get_compressibility_coefficient(cell->material_id())/(1-phi) *dVESdt;
 
           for (unsigned int i = 0; i < dofs_per_cell; ++i) {
               for (unsigned int j = 0; j < dofs_per_cell; ++j) {
 
-              cell_matrix(i, j) +=
-                  (fe_values_P.shape_grad(i, q_point) * fe_values_P.shape_grad(j, q_point) * fe_values_P.JxW(q_point));
+              cell_matrix(i, j) +=((advection_directions[q_point] *
+                                    fe_values_P.shape_grad(j,q_point)   *
+                                    (fe_values_P.shape_value(i,q_point) +
+                                     delta *
+                                     (advection_directions[q_point] *
+                                     fe_values_P.shape_grad(i,q_point)))) *
+                                     fe_values_P.JxW(q_point));
+
+                  //(fe_values_P.shape_grad(i, q_point) * fe_values_P.shape_grad(j, q_point) * fe_values_P.JxW(q_point));
 
               //          cell_rhs(i) += (right_hand_side.value(fe_values.quadrature_point(q_point)) *
               //                          fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
-               cell_rhs(i) += (rhs_at_quad[q_point] * fe_values_P.shape_value(i, q_point) * fe_values_P.JxW(q_point));
+               cell_rhs(i) += (fe_values_P.shape_value(i,q_point) +
+                               delta *
+                               (advection_directions[q_point] *
+                                fe_values_P.shape_grad(i,q_point))) *
+                              rhs_at_quad[q_point] * fe_values_P.JxW (q_point);
             } //end j
           } //end i
         }//end q
 
+      for (unsigned int face=0; face<GeometryInfo<dim>::faces_per_cell; ++face)
+        if (cell->face(face)->at_boundary())
+          {
+            fe_face_values.reinit (cell, face);
+
+            advection_field.value_list (fe_face_values.get_quadrature_points(),
+                                        face_advection_directions);
+            for (unsigned int q_point=0; q_point<n_face_q_points; ++q_point)
+              if (fe_face_values.normal_vector(q_point) *
+                  face_advection_directions[q_point]
+                  < 0)
+                for (unsigned int i=0; i<dofs_per_cell; ++i)
+                  {
+                    for (unsigned int j=0; j<dofs_per_cell; ++j)
+                      cell_matrix(i,j) -= (face_advection_directions[q_point] *
+                                                     fe_face_values.normal_vector(q_point) *
+                                                     fe_face_values.shape_value(i,q_point) *
+                                                     fe_face_values.shape_value(j,q_point) *
+                                                     fe_face_values.JxW(q_point));
+                    cell_rhs(i) -= (face_advection_directions[q_point] *
+                                              fe_face_values.normal_vector(q_point) *
+                                              0.2         *
+                                              fe_face_values.shape_value(i,q_point) *
+                                              fe_face_values.JxW(q_point));
+                  }
+          }
+
+
+
+
+
+
 
       cell->get_dof_indices(local_dof_indices);//distribute to correct globally numbered vector
 
-      constraints_poisson.distribute_local_to_global(cell_matrix, cell_rhs, local_dof_indices, poisson_system_matrix, poisson_rhs);
-      //constraints_P.distribute_local_to_global(cell_matrix, local_dof_indices, poisson_system_matrix);
+      constraints_supg.distribute_local_to_global(cell_matrix, cell_rhs, local_dof_indices, supg_system_matrix, supg_rhs);
+      //constraints_P.distribute_local_to_global(cell_matrix, local_dof_indices, supg_system_matrix);
     }
     }//end cell loop
 
-  poisson_rhs.compress(VectorOperation::add);
-  poisson_system_matrix.compress(VectorOperation::add);
+  supg_rhs.compress(VectorOperation::add);
+  supg_system_matrix.compress(VectorOperation::add);
 
-  solve_poisson();
-  locally_relevant_solution_Fy=poisson_solution;
+  solve_supg();
+  locally_relevant_solution_Fy=supg_solution;
 }
 
 template <int dim>
@@ -1479,7 +1578,7 @@ void LayerMovementProblem<dim>::output_vectors_P()
   data_out.attach_dof_handler(dof_handler_P);
   data_out.add_data_vector(locally_relevant_solution_P, "P");
   data_out.add_data_vector(old_locally_relevant_solution_P, "old_P");
-  //data_out.add_data_vector(poisson_rhs, "poisson_rhs");
+  //data_out.add_data_vector(supg_rhs, "supg_rhs");
   // data_out.add_data_vector(locally_relevant_solution_Fy, "Fy");
   Vector<float> subdomain(triangulation.n_active_cells());
   for (unsigned int i = 0; i < subdomain.size(); ++i)
@@ -1594,7 +1693,7 @@ void LayerMovementProblem<dim>::run()
   setup_system_T();
   setup_system_Q();
   setup_system_LS();
-  setup_speed_function_poisson();
+  setup_speed_function_supg();
 
   initial_conditions();
   // display_vectors();
