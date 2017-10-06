@@ -195,6 +195,12 @@ private:
 
   LA::MPI::Vector locally_relevant_solution_P;
   LA::MPI::Vector old_locally_relevant_solution_P;
+  LA::MPI::Vector temp_locally_relevant_solution_P;
+  LA::MPI::Vector old_temp_locally_relevant_solution_P;
+
+
+
+
   LA::MPI::Vector locally_relevant_solution_T;
   LA::MPI::Vector old_locally_relevant_solution_T;
   LA::MPI::Vector locally_relevant_solution_Fx;
@@ -218,6 +224,7 @@ private:
 
   LA::MPI::Vector overburden;
   LA::MPI::Vector old_overburden;
+  LA::MPI::Vector temp_overburden;
 
   LA::MPI::Vector bulkdensity;
   LA::MPI::Vector porosity;
@@ -373,6 +380,8 @@ void LayerMovementProblem<dim>::setup_system_P()
   // vector setup
   locally_relevant_solution_P.reinit(locally_owned_dofs_P, locally_relevant_dofs_P, mpi_communicator);
   locally_relevant_solution_P = 0;
+  temp_locally_relevant_solution_P.reinit(locally_owned_dofs_P, locally_relevant_dofs_P, mpi_communicator);
+  old_temp_locally_relevant_solution_P.reinit(locally_owned_dofs_P, locally_relevant_dofs_P, mpi_communicator);
 
   completely_distributed_solution_P.reinit(locally_owned_dofs_P, mpi_communicator);
 
@@ -494,6 +503,7 @@ void LayerMovementProblem<dim>::setup_system_Q()
   overburden.reinit(locally_owned_dofs_Q, mpi_communicator);
   old_overburden.reinit(locally_owned_dofs_Q, mpi_communicator);
   bulkdensity.reinit(locally_owned_dofs_Q, mpi_communicator);
+  temp_overburden.reinit(locally_owned_dofs_Q, mpi_communicator);
 
   bulkheat_capacity.reinit(locally_owned_dofs_Q, mpi_communicator);
   thermal_conductivity.reinit(locally_owned_dofs_Q, mpi_communicator);
@@ -650,6 +660,8 @@ template <int dim>
 void LayerMovementProblem<dim>::compute_bulkdensity()
 {
   TimerOutput::Scope t(computing_timer, "compute_bulkdensity");
+  bulkdensity=0;
+  bulkheat_capacity=0;
 
   const QGauss<dim> quadrature_formula(3);
 
@@ -703,7 +715,6 @@ void LayerMovementProblem<dim>::compute_overburden()
 {
   TimerOutput::Scope t(computing_timer, "compute_overburden");
 
-  old_overburden = overburden;
 
   const QGauss<dim> quadrature_formula(3);
 
@@ -733,9 +744,9 @@ void LayerMovementProblem<dim>::compute_overburden()
       overburden_at_quad[q_point] = /* material_data.g */ 9.81 * (1 - point_for_depth[1]) * bulkdensity_at_quad[q_point];
     }
     cell->get_dof_indices(local_dof_indices);
-    constraints_Q.distribute_local_to_global(overburden_at_quad, local_dof_indices, overburden);
+    constraints_Q.distribute_local_to_global(overburden_at_quad, local_dof_indices, temp_overburden);
   }
-  overburden.compress(VectorOperation::add);
+  temp_overburden.compress(VectorOperation::add);
 }
 
 template <int dim>
@@ -743,7 +754,7 @@ void LayerMovementProblem<dim>::compute_porosity_and_permeability()
 {
   TimerOutput::Scope t(computing_timer, "compute_porosity and permeability");
 
-  old_porosity = porosity;
+  thermal_conductivity=0;
   porosity=0;
   permeability=0;
 
@@ -779,8 +790,8 @@ void LayerMovementProblem<dim>::compute_porosity_and_permeability()
 
       const double compaction_coefficient = material_data.get_compressibility_coefficient(cell->material_id());
 
-      fe_values_P.get_function_values(locally_relevant_solution_P, pressure_at_quad);
-      fe_values_Q.get_function_values(overburden, overburden_at_quad);
+      fe_values_P.get_function_values(temp_locally_relevant_solution_P, pressure_at_quad);
+      fe_values_Q.get_function_values(temp_overburden, overburden_at_quad);
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
 
         porosity_at_quad[q_point] = CPPLS::porosity(pressure_at_quad[q_point], overburden_at_quad[q_point],
@@ -929,13 +940,15 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
       fe_values_Q.get_function_values(porosity, porosity_at_quad);
       fe_values_Q.get_function_values(permeability, permeability_at_quad);
-      fe_values_Q.get_function_values(overburden, overburden_at_quad);
+      fe_values_Q.get_function_values(temp_overburden, overburden_at_quad);
       fe_values_Q.get_function_values(old_overburden, old_overburden_at_quad);
 
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
+          const double phi=porosity_at_quad[q_point];
         const double diff_coeff_at_quad =
-            (permeability_at_quad[q_point] / (porosity_at_quad[q_point] * material_data.fluid_viscosity));
-        const double rhs_at_quad = (overburden_at_quad[q_point] - old_overburden_at_quad[q_point] ) / time_step /*- 9.8*material_data.fluid_density*0.08*/;
+            (permeability_at_quad[q_point] / material_data.fluid_viscosity);
+        const double rhs_coeff = material_data.get_compressibility_coefficient(cell->material_id()) * phi *(1-phi);
+        const double rhs_at_quad =rhs_coeff* (overburden_at_quad[q_point] - old_overburden_at_quad[q_point] ) / time_step - 9.8*material_data.fluid_density*(0.2);
 
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
           for (unsigned int j = 0; j < dofs_per_cell; ++j) {
@@ -990,7 +1003,7 @@ void LayerMovementProblem<dim>::forge_system_P()
   //                          locally_relevant_dofs, mpi_communicator);
   forcing_terms.reinit(locally_owned_dofs_P, mpi_communicator);
 
-  old_locally_relevant_solution_P = locally_relevant_solution_P;
+  old_temp_locally_relevant_solution_P = temp_locally_relevant_solution_P;
   mass_matrix_P.vmult(system_rhs_P, old_locally_relevant_solution_P);
 
   laplace_matrix_P.vmult(tmp, old_locally_relevant_solution_P);
@@ -1057,7 +1070,7 @@ void LayerMovementProblem<dim>::solve_time_step_P()
 
   constraints_P.distribute(completely_distributed_solution);
 
-  locally_relevant_solution_P = completely_distributed_solution;
+  temp_locally_relevant_solution_P = completely_distributed_solution;
 }
 
 //TODO test the temperature part
@@ -1346,13 +1359,17 @@ void LayerMovementProblem<dim>::solve_supg()
   LA::MPI::Vector completely_distributed_solution(locally_owned_dofs_P, mpi_communicator);
 
   SolverControl solver_control(dof_handler_P.n_dofs(), 1e-12);
-  //LA::SolverBicgstab solver(solver_control, mpi_communicator);
-  LA::SolverGMRES solver(solver_control, mpi_communicator);
-  LA::MPI::PreconditionAMG preconditioner;
+//  LA::SolverBicgstab solver(solver_control, mpi_communicator);
+ LA::SolverGMRES solver(solver_control, mpi_communicator);
+//  LA::MPI::PreconditionAMG preconditioner;
+//  LA::MPI::PreconditionAMG::AdditionalData data;
+//  LA::MPI::PreconditionSSOR preconditioner;
+//  LA::MPI::PreconditionSSOR::AdditionalData data;
+  LA::MPI::PreconditionJacobi preconditioner;
+  LA::MPI::PreconditionJacobi::AdditionalData data;
 
-  LA::MPI::PreconditionAMG::AdditionalData data;
 
-  data.symmetric_operator = false;
+  //data.symmetric_operator = false;
   preconditioner.initialize(system_matrix_P, data);
 
   solver.solve(supg_system_matrix, completely_distributed_solution, supg_rhs, preconditioner);
@@ -1400,7 +1417,7 @@ void LayerMovementProblem<dim>::compute_speed_function()
   std::vector<double> pressure_at_quad(n_q_points);
   std::vector<double> old_pressure_at_quad(n_q_points);
 
-
+  Point<dim> point_for_depth;
   //  std::vector<double> Fx_at_quad(n_q_points);
   //  std::vector<double> Fy_at_quad(n_q_points);
 
@@ -1444,15 +1461,22 @@ void LayerMovementProblem<dim>::compute_speed_function()
       const double delta = 0.1 * cell->diameter();
 
 
+
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
           const double phi=porosity_at_quad[q_point];
+          point_for_depth = fe_values_P.quadrature_point(q_point);
 
+          const double VES=(overburden_at_quad[q_point]- pressure_at_quad[q_point] );//- material_data.fluid_density* 9.81*(point_for_depth[1]));
+          //pcout<<"VES"<<VES<<std::endl;
           const double dVESdt=std::abs(((overburden_at_quad[q_point]-old_overburden_at_quad[q_point])
                               -1*(pressure_at_quad[q_point]-old_pressure_at_quad[q_point]))/ time_step
                               - material_data.fluid_density* 9.81* (0.2 ));
 
           const double dphidt = (porosity_at_quad[q_point]-old_porosity_at_quad[q_point])/time_step;
-          rhs_at_quad[q_point]=-phi*material_data.get_compressibility_coefficient(cell->material_id())/(1-phi) *dVESdt;
+          //pcout<<"dphidt" <<dphidt<<std::endl;
+          rhs_at_quad[q_point]=phi*material_data.get_compressibility_coefficient(cell->material_id())/(1-phi) *dVESdt;
+          if(rhs_at_quad[q_point]<0)
+          {pcout<<"rhs"<<rhs_at_quad[q_point]<<std::endl;}
 
           for (unsigned int i = 0; i < dofs_per_cell; ++i) {
               for (unsigned int j = 0; j < dofs_per_cell; ++j) {
@@ -1478,32 +1502,32 @@ void LayerMovementProblem<dim>::compute_speed_function()
           } //end i
         }//end q
 
-      for (unsigned int face=0; face<GeometryInfo<dim>::faces_per_cell; ++face)
-        if (cell->face(face)->at_boundary())
-          {
-            fe_face_values.reinit (cell, face);
+//      for (unsigned int face=0; face<GeometryInfo<dim>::faces_per_cell; ++face)
+//        if (cell->face(face)->at_boundary())
+//          {
+//            fe_face_values.reinit (cell, face);
 
-            advection_field.value_list (fe_face_values.get_quadrature_points(),
-                                        face_advection_directions);
-            for (unsigned int q_point=0; q_point<n_face_q_points; ++q_point)
-              if (fe_face_values.normal_vector(q_point) *
-                  face_advection_directions[q_point]
-                  < 0)
-                for (unsigned int i=0; i<dofs_per_cell; ++i)
-                  {
-                    for (unsigned int j=0; j<dofs_per_cell; ++j)
-                      cell_matrix(i,j) -= (face_advection_directions[q_point] *
-                                                     fe_face_values.normal_vector(q_point) *
-                                                     fe_face_values.shape_value(i,q_point) *
-                                                     fe_face_values.shape_value(j,q_point) *
-                                                     fe_face_values.JxW(q_point));
-                    cell_rhs(i) -= (face_advection_directions[q_point] *
-                                              fe_face_values.normal_vector(q_point) *
-                                              0.2         *
-                                              fe_face_values.shape_value(i,q_point) *
-                                              fe_face_values.JxW(q_point));
-                  }
-          }
+//            advection_field.value_list (fe_face_values.get_quadrature_points(),
+//                                        face_advection_directions);
+//            for (unsigned int q_point=0; q_point<n_face_q_points; ++q_point)
+//              if (fe_face_values.normal_vector(q_point) *
+//                  face_advection_directions[q_point]
+//                  < 0)
+//                for (unsigned int i=0; i<dofs_per_cell; ++i)
+//                  {
+//                    for (unsigned int j=0; j<dofs_per_cell; ++j)
+//                      cell_matrix(i,j) -= (face_advection_directions[q_point] *
+//                                                     fe_face_values.normal_vector(q_point) *
+//                                                     fe_face_values.shape_value(i,q_point) *
+//                                                     fe_face_values.shape_value(j,q_point) *
+//                                                     fe_face_values.JxW(q_point));
+//                    cell_rhs(i) -= (face_advection_directions[q_point] *
+//                                              fe_face_values.normal_vector(q_point) *
+//                                              0.2         *
+//                                              fe_face_values.shape_value(i,q_point) *
+//                                              fe_face_values.JxW(q_point));
+//                  }
+//          }
 
 
 
@@ -1578,7 +1602,8 @@ void LayerMovementProblem<dim>::output_vectors_P()
   data_out.attach_dof_handler(dof_handler_P);
   data_out.add_data_vector(locally_relevant_solution_P, "P");
   data_out.add_data_vector(old_locally_relevant_solution_P, "old_P");
-  //data_out.add_data_vector(supg_rhs, "supg_rhs");
+  temp_locally_relevant_solution_P=supg_rhs; //just for ghosted story for output
+  data_out.add_data_vector(temp_locally_relevant_solution_P, "supg_rhs");
   // data_out.add_data_vector(locally_relevant_solution_Fy, "Fy");
   Vector<float> subdomain(triangulation.n_active_cells());
   for (unsigned int i = 0; i < subdomain.size(); ++i)
@@ -1647,6 +1672,8 @@ void LayerMovementProblem<dim>::output_vectors_Q()
   data_out.add_data_vector(permeability, "k");
   data_out.add_data_vector(old_porosity, "phi");
   data_out.add_data_vector(overburden, "sigma");
+  data_out.add_data_vector(bulkdensity, "rho_b");
+
 
   // data_out.add_data_vector(locally_relevant_solution_Fy, "Fy");
   Vector<float> subdomain(triangulation.n_active_cells());
@@ -1748,6 +1775,13 @@ void LayerMovementProblem<dim>::run()
                                      locally_relevant_solution_Fy);
 
 
+
+
+  int is_converged = 0;
+  const int maxiter = 20;
+  int nl_loop_count = 0;
+  const double nl_tol=1e-8;
+
   //  // TIME STEPPING
   timestep_number = 1;
   for ( double time = time_step; time <= final_time; time += time_step, ++timestep_number) {
@@ -1757,21 +1791,84 @@ void LayerMovementProblem<dim>::run()
 
     // set material ids based on locally_relevant_solution_LS
     setup_material_configuration();
-    // set physical vectors
-    compute_bulkdensity();
-    compute_overburden();
+    old_locally_relevant_solution_P=locally_relevant_solution_P;
+    old_temp_locally_relevant_solution_P=temp_locally_relevant_solution_P;
+    old_porosity=porosity;
+    old_overburden=overburden;
 
-    compute_porosity_and_permeability();
+
+    is_converged=0;
+    nl_loop_count=0;
+    while(is_converged==0 && nl_loop_count< maxiter)
+      {
+    // set physical vectors
+    compute_bulkdensity();// using porosity
+    temp_overburden=overburden;
+    compute_overburden();
 
     // assemble and solve for pressure
     assemble_matrices_P();
 
     forge_system_P();
-    solve_time_step_P();
+    solve_time_step_P(); //temp_loc_r_s_P
 
-    assemble_matrices_T();
-    forge_system_T();
-    solve_time_step_T();
+
+          Vector<double> cellwise_errors (triangulation.n_active_cells());
+          QGauss<dim> quadrature (2+2);
+
+          VectorTools::integrate_difference (dof_handler_P,
+                                             temp_locally_relevant_solution_P,
+                                             ZeroFunction<dim>(),
+                                             cellwise_errors,
+                                             quadrature,
+                                             VectorTools::L2_norm);
+
+          const double error_p_l2
+            = VectorTools::compute_global_error(triangulation, cellwise_errors, VectorTools::L2_norm);
+
+          const double diff= std::abs(temp_locally_relevant_solution_P.l2_norm() - old_temp_locally_relevant_solution_P.l2_norm());
+          double deviation= diff/(temp_locally_relevant_solution_P.l2_norm());
+//          pcout << "int_diff_l2: "<< error_p_l2
+//                <<"\nl2_norm: " << diff
+//                << "\ndev" <<deviation
+//                << std::endl;
+          pcout<< "picard: "<< nl_loop_count <<" deviation: " <<deviation<<std::endl;
+
+
+    compute_porosity_and_permeability();
+
+
+    if (deviation<nl_tol)
+      {
+         is_converged=1;
+         locally_relevant_solution_P=temp_locally_relevant_solution_P;
+         overburden=temp_overburden;
+         pcout<< "picard done in "
+              << nl_loop_count<< std::endl;
+
+      }
+      else
+      {
+        ++nl_loop_count;
+        old_temp_locally_relevant_solution_P=temp_locally_relevant_solution_P;
+
+      }
+
+
+      } //end nl while loop
+      if(is_converged==0)
+        {
+          pcout<<"NO PICARD convergence"<<std::endl;
+          locally_relevant_solution_P=temp_locally_relevant_solution_P;
+          overburden=temp_overburden;
+
+        }
+
+
+
+//    assemble_matrices_T();
+//    forge_system_T();
+//    solve_time_step_T();
 
 
     compute_speed_function(); // set locally_relevant_solution_u/Fx, locally_relevant_solution_v/Fy

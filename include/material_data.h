@@ -20,7 +20,7 @@ namespace CPPLS
         const double fluid_density{1000}; //pore fluid (water) density
 
         //(TODO:make this weakly dependent on T)
-        const double fluid_viscosity{1000}; //pore fluid (water) viscosity Pa s
+        const double fluid_viscosity{0.001}; //pore fluid (water) viscosity Pa s
 
         const double fluid_heat_capacity{4180.0}; // J/kg K
 
