@@ -603,7 +603,7 @@ void LayerMovementProblem<dim>::initial_conditions()
   // init condition for LS
   //all the others will share this
   completely_distributed_solution_LS_0 = 0;
-  VectorTools::interpolate(dof_handler_LS, Initial_LS<dim>(), completely_distributed_solution_LS_0);
+  VectorTools::interpolate(dof_handler_LS, Initial_LS<dim>(0.0005, parameters.box_size), completely_distributed_solution_LS_0);
   constraints_LS.distribute(completely_distributed_solution_LS_0);
   locally_relevant_solution_LS_0 = completely_distributed_solution_LS_0;
 }
@@ -741,7 +741,7 @@ void LayerMovementProblem<dim>::compute_overburden()
       point_for_depth = fe_values.quadrature_point(q_point);
       // TODO: make dim independent p[1] p[2]
       //TODO: make spatial scale consistent , ie. 1 -> box.size
-      overburden_at_quad[q_point] = /* material_data.g */ 9.81 * (1 - point_for_depth[1]) * bulkdensity_at_quad[q_point];
+      overburden_at_quad[q_point] = /* material_data.g */ 9.81 * (parameters.box_size - point_for_depth[1]) * bulkdensity_at_quad[q_point];
     }
     cell->get_dof_indices(local_dof_indices);
     constraints_Q.distribute_local_to_global(overburden_at_quad, local_dof_indices, temp_overburden);
@@ -1418,8 +1418,11 @@ void LayerMovementProblem<dim>::compute_speed_function()
   std::vector<double> old_pressure_at_quad(n_q_points);
 
   Point<dim> point_for_depth;
-  //  std::vector<double> Fx_at_quad(n_q_points);
+  SedimentationRate<dim> sedRate;
+
+  std::vector<double> sedimentation_rate(n_q_points);
   //  std::vector<double> Fy_at_quad(n_q_points);
+
 
   Vector<double> cell_rhs(dofs_per_cell);
 
@@ -1455,6 +1458,10 @@ void LayerMovementProblem<dim>::compute_speed_function()
       fe_values_P.get_function_values(old_locally_relevant_solution_P, old_pressure_at_quad);
       fe_values_Q.get_function_values(overburden, overburden_at_quad);
       fe_values_Q.get_function_values(old_overburden, old_overburden_at_quad);
+
+
+      sedRate.value_list (fe_values_P.get_quadrature_points(),
+                                      sedimentation_rate, 1);
 
       cell_rhs=0;
       cell_matrix=0;
@@ -1735,6 +1742,7 @@ void LayerMovementProblem<dim>::run()
   const double cfl = 1;
   const double umax =1;
   time_step=cfl*min_h/umax;
+  //pcout<<"min_h"<<min_h;
 
 
   const double cK = 1.0;

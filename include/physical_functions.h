@@ -23,6 +23,69 @@ double permeability(const double porosity, const double initial_permeability, co
   return (initial_permeability * (1 - initial_porosity) / (1 - porosity));
 }
 
+template <int dim>
+class SedimentationRate : public Function<dim>
+{
+public:
+  SedimentationRate (double t=0) : Function<dim>() {this->set_time(t);}
+  virtual double value (const Point<dim> &p, const unsigned int component=0) const;
+
+  virtual void value_list (const std::vector<Point<dim> > &points,
+                                   std::vector<double>            &values,
+                                   const unsigned int              component) const;
+
+};
+// Sedimentation rate in the <dim 2> along x and <dim 3> x-y plane
+template <int dim>
+double SedimentationRate<dim>::value (const Point<dim> &p, const unsigned int) const
+{
+
+    double return_value=0;
+
+  switch(dim)
+    {
+    case 1:{
+      Assert(false, ExcNotImplemented());
+      break;}
+    case 2:{
+      double x=p[0]; double y=p[1];
+
+      return std::abs(sin(x));
+
+
+
+     // return return_value;
+
+      break;}
+    case 3:{
+      double x=p[0]; double y=p[1]; double z=p[2];
+      if (z==1){
+        return_value = 0.25;
+      }
+       return return_value;
+      break;}
+    default:
+       Assert(false, ExcNotImplemented());
+    }
+
+}
+
+
+
+template <int dim>
+void
+SedimentationRate<dim>::value_list (const std::vector<Point<dim> > &points,
+                                 std::vector<double>            &values,
+                                 const unsigned int              component) const
+{
+  Assert (values.size() == points.size(),
+          ExcDimensionMismatch (values.size(), points.size()));
+
+  for (unsigned int i=0; i<points.size(); ++i)
+    values[i] = SedimentationRate<dim>::value (points[i], component);
+}
+
+
 
 
 
@@ -34,16 +97,17 @@ template <int dim>
 class Initial_LS : public Function <dim>
 {
 public:
-  Initial_LS ( double sharpness=0.0005) : Function<dim>(),
-                                                              sharpness(sharpness) {}
+  Initial_LS ( double sharpness=0.0005, const double box_size_z=1) : Function<dim>(),
+                                                              sharpness(sharpness), box_size_z(box_size_z) {}
   virtual double value (const Point<dim> &p, const unsigned int component=0) const;
   double sharpness;
-  unsigned int PROBLEM;
+  const double box_size_z;
 };
 template <int dim>
 double Initial_LS<dim>::value (const Point<dim> &p,
                                const unsigned int) const
 {
+
 
   switch(dim)
     {
@@ -54,7 +118,8 @@ double Initial_LS<dim>::value (const Point<dim> &p,
         //TODO undo the hardcoded "box size"
       double x=p[0]; double y=p[1];
       //std::cout<<std::tanh((y- 0.9)/sharpness)<<" "<<std::endl;
-      return std::tanh((y-0.99)/sharpness);
+      return std::tanh((y-(box_size_z-(box_size_z/100)))/sharpness);
+      //return std::tanh((y-0.99)/sharpness);
       break;}
     case 3:{
       double x=p[0]; double y=p[1]; double z=p[2];
