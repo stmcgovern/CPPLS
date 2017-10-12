@@ -14,14 +14,21 @@ using namespace dealii;
 
 
 double porosity(const double pressure, const double overburden, const double initial_porosity,
-                const double compaction_coefficient)
+                const double compaction_coefficient, const double hydrostatic)
 {
-  return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure)));
+  return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
 }
 double permeability(const double porosity, const double initial_permeability, const double initial_porosity)
 {
   return (initial_permeability * (1 - initial_porosity) / (1 - porosity));
 }
+
+double bulkdensity (const double porosity, const double fluid_density, const double solid_density)
+{
+  return (porosity*fluid_density+ (1-porosity)*solid_density);
+}
+
+//double bulkheatcapacity (const double porosity, const double fluid_)
 
 template <int dim>
 class SedimentationRate : public Function<dim>

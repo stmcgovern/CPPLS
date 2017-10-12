@@ -772,6 +772,7 @@ void LayerMovementProblem<dim>::compute_porosity_and_permeability()
   std::vector<double> porosity_at_quad(n_q_points);
   std::vector<double> permeability_at_quad(n_q_points);
   std::vector<double> thermal_conductivity_at_quad(n_q_points);
+   Point<dim> point_for_depth;
 
   // use the pre c++11 notation, since we are iterating using two dof_handlers
 
@@ -789,13 +790,14 @@ void LayerMovementProblem<dim>::compute_porosity_and_permeability()
       const double initial_permeability = material_data.get_surface_permeability(cell->material_id());
 
       const double compaction_coefficient = material_data.get_compressibility_coefficient(cell->material_id());
+      const double hydrostatic =(parameters.box_size - point_for_depth[1])*9.81*material_data.fluid_density;
 
       fe_values_P.get_function_values(temp_locally_relevant_solution_P, pressure_at_quad);
       fe_values_Q.get_function_values(temp_overburden, overburden_at_quad);
       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
 
         porosity_at_quad[q_point] = CPPLS::porosity(pressure_at_quad[q_point], overburden_at_quad[q_point],
-                                                    initial_porosity, compaction_coefficient);
+                                                    initial_porosity, compaction_coefficient, hydrostatic);
         permeability_at_quad[q_point] =
             CPPLS::permeability(porosity_at_quad[q_point], initial_permeability, initial_porosity);
         //TODO put a real function in here
@@ -1723,6 +1725,7 @@ void LayerMovementProblem<dim>::run()
 {
   // common mesh
   setup_geometry();
+
   setup_system_P();
   setup_system_T();
   setup_system_Q();
