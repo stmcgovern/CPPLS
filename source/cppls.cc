@@ -68,7 +68,7 @@ using namespace dealii::LinearAlgebraPETSc;
 namespace CPPLS {
 using namespace dealii;
 
-constexpr double inflow_rate{-1e-3};
+constexpr double inflow_rate{-3.15e-11};
 
 template <int dim>
 class LayerMovementProblem {
@@ -436,7 +436,7 @@ void LayerMovementProblem<dim>::setup_system_Sigma()
   // vector setup
   locally_relevant_solution_Sigma.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
   old_locally_relevant_solution_Sigma.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
-  temp_locally_relevant_solution_Sigma.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+  //temp_locally_relevant_solution_Sigma.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
 
   rhs_Sigma.reinit(locally_owned_dofs, mpi_communicator);
 
@@ -487,7 +487,7 @@ void LayerMovementProblem<dim>::setup_system_F()
 
   // inflow bc at top
   VectorTools::interpolate_boundary_values(dof_handler, 3, ConstantFunction<dim>(inflow_rate),
-                                           constraints_F); // TODO get rid of numbers!
+                                           constraints_F); // TODO put in SedimentationRate
   constraints_F.close();
 
   // create sparsity pattern
@@ -520,7 +520,6 @@ void LayerMovementProblem<dim>::setup_system_LS()
 
   // vector setup
   locally_relevant_solution_LS_0.reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
-  locally_relevant_solution_LS_0 = 0;
 
   completely_distributed_solution_LS_0.reinit(locally_owned_dofs_LS, mpi_communicator);
 
@@ -630,9 +629,8 @@ void LayerMovementProblem<dim>::assemble_Sigma()
   for (auto cell : filter_iterators(dof_handler.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
 
     fe_values.reinit(cell);
-    // Note we use the temporary state variables, as this will be repeated in the nonlinear loop
-    fe_values.get_function_values(temp_locally_relevant_solution_P, pressure_at_quad);
-    fe_values.get_function_values(temp_locally_relevant_solution_Sigma, overburden_at_quad);
+    fe_values.get_function_values(locally_relevant_solution_P, pressure_at_quad);
+    fe_values.get_function_values(locally_relevant_solution_Sigma, overburden_at_quad);
 
     // TODO consider moving these properties to the quad point level, not just cell level
     const double initial_porosity = material_data.get_surface_porosity(cell->material_id());
@@ -731,7 +729,7 @@ void LayerMovementProblem<dim>::solve_Sigma()
 
   constraints_Sigma.distribute(completely_distributed_solution);
 
-  temp_locally_relevant_solution_Sigma = completely_distributed_solution;
+  locally_relevant_solution_Sigma = completely_distributed_solution;
 }
 
 template <int dim>
@@ -935,8 +933,13 @@ void LayerMovementProblem<dim>::setup_material_configuration()
     fe_values.reinit(cell);
     fe_values.get_function_values(locally_relevant_solution_LS_0, LS0_at_quad);
 
+
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-      id_sum0 += LS0_at_quad[q_point];
+//         output_vectors_LS();
+//         abort();
+        Assert(LS0_at_quad[q_point] < 1.5, ExcInternalError());
+        Assert(-1.5 < LS0_at_quad[q_point], ExcInternalError());
+        id_sum0 += LS0_at_quad[q_point];
     }
     if (id_sum0 <= 0) {
       cell->set_material_id(0);
@@ -1054,7 +1057,7 @@ void LayerMovementProblem<dim>::forge_system_P()
 
   forcing_terms.reinit(locally_owned_dofs, mpi_communicator);
 
-  old_temp_locally_relevant_solution_P = temp_locally_relevant_solution_P;
+  old_locally_relevant_solution_P = locally_relevant_solution_P;
   mass_matrix_P.vmult(system_rhs_P, old_locally_relevant_solution_P);
 
   laplace_matrix_P.vmult(tmp, old_locally_relevant_solution_P);
@@ -1097,7 +1100,7 @@ void LayerMovementProblem<dim>::solve_time_step_P()
 
   constraints_P.distribute(completely_distributed_solution);
 
-  temp_locally_relevant_solution_P = completely_distributed_solution;
+  locally_relevant_solution_P = completely_distributed_solution;
 }
 
 template <int dim>
@@ -1317,6 +1320,9 @@ void LayerMovementProblem<dim>::output_vectors()
   data_out.add_data_vector(locally_relevant_solution_Sigma, "Sigma");
   data_out.add_data_vector(old_locally_relevant_solution_Sigma, "old_Sigma");
   data_out.add_data_vector(locally_relevant_solution_F, "F");
+  data_out.add_data_vector(system_rhs_P, "s_rhs_P");
+  data_out.add_data_vector(rhs_F, "rhs_F" );
+  data_out.add_data_vector(rhs_Sigma, "rhs_s");
 
   //  LA::MPI::Vector material_kind;
   //  material_kind.reinit(locally_owned_dofs, mpi_communicator);
@@ -1352,30 +1358,7 @@ void LayerMovementProblem<dim>::output_vectors()
   }
 }
 
-template <int dim>
-double LayerMovementProblem<dim>::estimate_nl_error()
-{
 
-  Vector<double> cellwise_errors(triangulation.n_active_cells());
-  const QTrapez<1> q_trapez;
-  const QIterated<dim> q_iterated(q_trapez, 5);
-  // QIterated<dim> error_quadrature(degree + 2);
-
-  VectorTools::integrate_difference(dof_handler, temp_locally_relevant_solution_P, ZeroFunction<dim>(), cellwise_errors,
-                                    q_iterated, VectorTools::L2_norm);
-
-  const double error_p_l2 = VectorTools::compute_global_error(triangulation, cellwise_errors, VectorTools::L2_norm);
-
-  const double diff =
-      std::abs(temp_locally_relevant_solution_P.l2_norm() - old_temp_locally_relevant_solution_P.l2_norm());
-  double deviation = diff / (temp_locally_relevant_solution_P.l2_norm());
-  //          pcout << "int_diff_l2: "<< error_p_l2
-  //                <<"\nl2_norm: " << diff
-  //                << "\ndev" <<deviation
-  //                << std::endl;
-
-  return deviation;
-}
 
 template <int dim>
 void LayerMovementProblem<dim>::run()
@@ -1394,14 +1377,14 @@ void LayerMovementProblem<dim>::run()
 
   initial_conditions();
 
-  // SedimentationRate
-
+  //const SedimentationRate SedRate(parameters);
+  const double SedRate = 3.15e-11;
   // initialize level set solver
   // we use some hardcode defaults for now
 
   const double min_h = GridTools::minimal_cell_diameter(triangulation) / std::sqrt(2);
-  const double cfl = 1;
-  const double umax = 1; // TODO set to sedRate
+  const double cfl = 0.9;
+  const double umax = SedRate;  //max_sedRate
   time_step = cfl * min_h / umax;
   // pcout<<"min_h"<<min_h;
 
@@ -1421,15 +1404,9 @@ void LayerMovementProblem<dim>::run()
   level_set_solver0.initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Wxy,
                                       locally_relevant_solution_F);
 
-  int is_converged = 0;
-  const int maxiter = 5;
-  int nl_loop_count = 0;
-  const double nl_tol = 1e-8;
-  double deviation = 0;
-
   // For the first step, F is just the sedimentation rate
 
-  locally_relevant_solution_F = -0.1;
+  locally_relevant_solution_F = -1*SedRate;
 
   //  // TIME STEPPING
   timestep_number = 1;
@@ -1450,52 +1427,18 @@ void LayerMovementProblem<dim>::run()
       level_set_solver0.nth_time_step();
       level_set_solver0.get_unp1(locally_relevant_solution_LS_0); // exposes interface vector
     }
-
+    output_vectors();
     // set material ids based on locally_relevant_solution_LS
     setup_material_configuration(); // TODO: move away from cell id to values at quad points
 
-    // Setup and Execute a nonlinear iteration over the pressure and porosity
-
-    old_locally_relevant_solution_P = locally_relevant_solution_P;
-    old_temp_locally_relevant_solution_P = temp_locally_relevant_solution_P;
-
-    is_converged = 0;
-    nl_loop_count = 0;
-    while (is_converged == 0 && nl_loop_count < maxiter) {
-
       // First get an overburden solution with the current porosity
-      assemble_Sigma(); // this should be with the temp pressure variable
-      solve_Sigma();    // generates temp_l_r_s_Sigma
+      assemble_Sigma();
+      solve_Sigma();    // generates l_r_s_Sigma
 
       // pressure solution
       assemble_matrices_P();
       forge_system_P();
       solve_time_step_P(); // temp_loc_r_s_P
-
-      deviation = estimate_nl_error();
-      pcout << "picard: " << nl_loop_count << " deviation: " << deviation << std::endl;
-
-      if (deviation < nl_tol) {
-        is_converged = 1;
-        locally_relevant_solution_P = temp_locally_relevant_solution_P;
-        locally_relevant_solution_Sigma = temp_locally_relevant_solution_Sigma;
-        // overburden = temp_overburden;
-        pcout << "picard done in " << nl_loop_count << std::endl;
-      }
-      else {
-        ++nl_loop_count;
-        old_temp_locally_relevant_solution_P = temp_locally_relevant_solution_P;
-      }
-
-    } // end nl while loop
-
-    if (is_converged == 0) {
-      pcout << "NO PICARD convergence" << std::endl;
-      locally_relevant_solution_P = temp_locally_relevant_solution_P;
-      locally_relevant_solution_Sigma = temp_locally_relevant_solution_Sigma;
-    }
-
-    // Now the overpressure and porosity are compatible (to within tolerance)
 
     // Solve temperature (coefficients depend on porosity, and TODO: should influence viscosity)
 
@@ -1519,6 +1462,7 @@ void LayerMovementProblem<dim>::run()
 } // end namespace CPPLS
 
 constexpr int dim{2};
+//constexpr double inflow_rate{3.15e-11};
 
 int main(int argc, char* argv[])
 {

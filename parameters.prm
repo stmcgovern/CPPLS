@@ -9,14 +9,14 @@ subsection Physical Parameters
 end
 
 subsection Finite Element
-  set initial_refinement_level = 6
+  set initial_refinement_level = 5
   set max_refinement_level = 4
   set fe_order = 2
 end
 
 subsection Time Step
   set start_time = 0.0
-  set stop_time = 2.0
+  set stop_time = 3.15e14
   set n_time_steps = 200
 end
 
