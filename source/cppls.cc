@@ -68,44 +68,7 @@ using namespace dealii::LinearAlgebraPETSc;
 namespace CPPLS {
 using namespace dealii;
 
-// some free functions
-
-// template <int dim>
-// void print_mesh_info(const Triangulation<dim>& triangulation, const std::string& filename)
-//{
-//  std::cout << "Mesh info:" << std::endl
-//            << " dimension: " << dim << std::endl
-//            << " no. of cells: " << triangulation.n_active_cells() << std::endl;
-
-//  std::map<unsigned int, unsigned int> boundary_count;
-//  typename Triangulation<dim>::active_cell_iterator cell = triangulation.begin_active(), endc = triangulation.end();
-//  for (; cell != endc; ++cell) {
-//    for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face) {
-//      if (cell->face(face)->at_boundary())
-//        boundary_count[cell->face(face)->boundary_id()]++;
-//    }
-//  }
-//  std::cout << " boundary indicators: ";
-//  for (std::map<unsigned int, unsigned int>::iterator it = boundary_count.begin(); it != boundary_count.end(); ++it) {
-//    std::cout << it->first << "(" << it->second << " times) ";
-//  }
-//  std::cout << std::endl;
-
-//  std::ofstream out(filename.c_str());
-//  GridOut grid_out;
-//  grid_out.write_eps(triangulation, out);
-//  std::cout << " written to " << filename << std::endl << std::endl;
-//}
-
-// double porosity(const double pressure, const double overburden, const double initial_porosity,
-//                const double compaction_coefficient)
-//{
-//  return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure)));
-//}
-// double permeability(const double porosity, const double initial_permeability, const double initial_porosity)
-//{
-//  return (initial_permeability * (1 - porosity) / (1 - initial_porosity));
-//}
+constexpr double inflow_rate{-1e-3};
 
 template <int dim>
 class LayerMovementProblem {
@@ -485,7 +448,7 @@ void LayerMovementProblem<dim>::setup_system_Sigma()
   DoFTools::make_hanging_node_constraints(dof_handler, constraints_Sigma);
 
   // inflow bc at top
-  VectorTools::interpolate_boundary_values(dof_handler, 3, ConstantFunction<dim>(-0.2),
+  VectorTools::interpolate_boundary_values(dof_handler, 3, ConstantFunction<dim>(inflow_rate),
                                            constraints_Sigma); // TODO get rid of numbers!
   constraints_Sigma.close();
 
@@ -523,7 +486,7 @@ void LayerMovementProblem<dim>::setup_system_F()
   DoFTools::make_hanging_node_constraints(dof_handler, constraints_F);
 
   // inflow bc at top
-  VectorTools::interpolate_boundary_values(dof_handler, 3, ConstantFunction<dim>(-0.2),
+  VectorTools::interpolate_boundary_values(dof_handler, 3, ConstantFunction<dim>(inflow_rate),
                                            constraints_F); // TODO get rid of numbers!
   constraints_F.close();
 
@@ -688,7 +651,7 @@ void LayerMovementProblem<dim>::assemble_Sigma()
                                  (parameters.box_size - point_for_depth[1]); // TODO make this dim independent
       const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                   compaction_coefficient, hydrostatic);
-
+      Assert(0 < hydrostatic, ExcInternalError());
       Assert(0 < phi, ExcInternalError());
       Assert(phi < 1, ExcInternalError());
 
@@ -837,6 +800,7 @@ void LayerMovementProblem<dim>::assemble_F()
       point_for_depth = fe_values.quadrature_point(q_point);
       const double hydrostatic = 9.81 * material_data.fluid_density *
                                  (parameters.box_size - point_for_depth[1]); // TODO make this dim independent
+      Assert(0 < hydrostatic, ExcInternalError());
       const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                   compaction_coefficient, hydrostatic);
 
@@ -852,7 +816,7 @@ void LayerMovementProblem<dim>::assemble_F()
       const double dphidt = (phi - old_phi) / time_step;
 
       // Assert dphidt <1;
-      Assert(dphidt < 1, ExcInternalError());
+      Assert(dphidt <= 0, ExcInternalError());
 
       rhs_at_quad[q_point] = dphidt / (1 - phi);
 
@@ -930,76 +894,6 @@ void LayerMovementProblem<dim>::solve_F()
   locally_relevant_solution_F = completely_distributed_solution;
 }
 
-////TODO remove this
-// template <int dim>
-// void LayerMovementProblem<dim>::compute_porosity_and_permeability()
-//{
-//  TimerOutput::Scope t(computing_timer, "compute_porosity and permeability");
-
-//  thermal_conductivity = 0;
-//  porosity = 0;
-//  permeability = 0;
-
-//  const QGauss<dim> quadrature_formula(3);
-
-//  FEValues<dim> fe_values_Q(fe_DGQ_Q, quadrature_formula, update_values | update_quadrature_points);
-//  FEValues<dim> fe_values_P(fe_P, quadrature_formula, update_values | update_quadrature_points);
-//  const unsigned int dofs_per_cell = fe_DGQ_Q.dofs_per_cell;
-//  const unsigned int n_q_points = quadrature_formula.size();
-
-//  std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
-
-//  std::vector<double> pressure_at_quad(n_q_points);
-//  std::vector<double> overburden_at_quad(n_q_points);
-//  std::vector<double> porosity_at_quad(n_q_points);
-//  std::vector<double> permeability_at_quad(n_q_points);
-//  std::vector<double> thermal_conductivity_at_quad(n_q_points);
-//  Point<dim> point_for_depth;
-
-//  // use the pre c++11 notation, since we are iterating using two dof_handlers
-
-//  typename DoFHandler<dim>::active_cell_iterator cell = dof_handler_P.begin_active(), endc = dof_handler_P.end();
-//  typename DoFHandler<dim>::active_cell_iterator cell_Q = dof_handler_Q.begin_active();
-
-//  // for (auto cell : filter_iterators(dof_handler_Q.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
-//  for (; cell != endc; ++cell, ++cell_Q) {
-//    // assert that cell=cell_Q
-//    // Assert (cell->id() == cell_Q->id());
-//    if (cell->is_locally_owned()) {
-//      fe_values_Q.reinit(cell_Q);
-//      fe_values_P.reinit(cell);
-//      const double initial_porosity = material_data.get_surface_porosity(cell->material_id());
-//      const double initial_permeability = material_data.get_surface_permeability(cell->material_id());
-
-//      const double compaction_coefficient = material_data.get_compressibility_coefficient(cell->material_id());
-//      const double hydrostatic = (parameters.box_size - point_for_depth[1]) * 9.81 * material_data.fluid_density;
-
-//      fe_values_P.get_function_values(temp_locally_relevant_solution_P, pressure_at_quad);
-//      fe_values_Q.get_function_values(temp_overburden, overburden_at_quad);
-//      for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-
-//        porosity_at_quad[q_point] = CPPLS::porosity(pressure_at_quad[q_point], overburden_at_quad[q_point],
-//                                                    initial_porosity, compaction_coefficient, hydrostatic);
-//        permeability_at_quad[q_point] =
-//            CPPLS::permeability(porosity_at_quad[q_point], initial_permeability, initial_porosity);
-//        // TODO put a real function in here
-//        thermal_conductivity_at_quad[q_point] = 1;
-//        // CPPLS::thermal_conductivity(porosity_at_quad[q_point],);
-
-//        Assert(porosity_at_quad[q_point] < 1, ExcInternalError());
-//        Assert(permeability_at_quad[q_point] > 0, ExcInternalError());
-//      }
-//      cell_Q->get_dof_indices(local_dof_indices);
-//      constraints_Q.distribute_local_to_global(porosity_at_quad, local_dof_indices, porosity);
-//      constraints_Q.distribute_local_to_global(permeability_at_quad, local_dof_indices, permeability);
-//      constraints_Q.distribute_local_to_global(thermal_conductivity_at_quad, local_dof_indices, thermal_conductivity);
-
-//    } // local
-//  }   // cell loop
-//  porosity.compress(VectorOperation::add);
-//  permeability.compress(VectorOperation::add);
-//  thermal_conductivity.compress(VectorOperation::add);
-//}
 
 // TODO fold this into P,F,Sigma, T assemblies to assign at quad point level
 template <int dim>
@@ -1093,18 +987,20 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
     const double initial_permeability = material_data.get_surface_permeability(cell->material_id());
 
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-      Assert(0 < pressure_at_quad[q_point], ExcInternalError())
-          Assert(0 < overburden_at_quad[q_point], ExcInternalError())
+      Assert(0 <= pressure_at_quad[q_point], ExcInternalError());
+      Assert(0 < overburden_at_quad[q_point], ExcInternalError());
 
-              point_for_depth = fe_values.quadrature_point(q_point);
+      point_for_depth = fe_values.quadrature_point(q_point);
       const double hydrostatic = 9.81 * material_data.fluid_density *
                                  (parameters.box_size - point_for_depth[1]); // TODO make this dim independent
+      Assert(0 < hydrostatic, ExcInternalError());
       const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                   compaction_coefficient, hydrostatic);
       Assert(0 < phi, ExcInternalError());
       Assert(phi < 1, ExcInternalError());
 
       const double perm_k = permeability(phi, initial_permeability, initial_porosity);
+      // pcout<<"perm_k"<<perm_k<<"init<<"<< initial_permeability<<std::endl;
       Assert(0 < perm_k, ExcInternalError());
       // Assert(perm_k <= initial_permeability, ExcInternalError());
 
@@ -1114,11 +1010,11 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
       Assert(old_phi < 1, ExcInternalError());
 
       const double dphidt = (phi - old_phi) / time_step;
-      Assert(dphidt < 0, ExcInternalError());
+      Assert(dphidt <= 0, ExcInternalError());
 
       const double diff_coeff_at_quad = (perm_k / material_data.fluid_viscosity);
-      const double rhs_coeff = material_data.get_compressibility_coefficient(cell->material_id()) * phi * (1 - phi);
-      const double rhs_at_quad = dphidt;
+      const double rhs_coeff = material_data.get_compressibility_coefficient(cell->material_id()) * phi / (1 - phi);
+      const double rhs_at_quad = -1 * dphidt / (1 - phi);
       //            rhs_coeff * (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
       //            9.8 * material_data.fluid_density * (0.2);
 

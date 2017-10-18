@@ -115,6 +115,7 @@ public:
 template <int dim>
 Tensor<1, dim> AdvectionField<dim>::value(const Point<dim>& p) const
 {
+  //TODO add dim switch
   Point<dim> value;
   value[0] = 0;
   value[1] = -1;
