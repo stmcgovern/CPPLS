@@ -68,8 +68,8 @@ double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) co
       double x = p[0];
       double y = p[1];
 
-      return std::abs(sin(x));
-
+      //return std::abs(sin(x));
+        return (3.15e-11);
       // return return_value;
 
       break;

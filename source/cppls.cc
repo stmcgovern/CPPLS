@@ -36,6 +36,7 @@ using namespace dealii::LinearAlgebraPETSc;
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
+#include <deal.II/dofs/dof_renumbering.h>
 
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_q.h>
@@ -325,7 +326,13 @@ void LayerMovementProblem<dim>::setup_dofs()
 {
   TimerOutput::Scope t(computing_timer, "setup_dofs");
 
+
   dof_handler.distribute_dofs(fe);
+  //TODO: put out the sparsity patterns
+  Point<dim> direction (0,-1);
+  //Not working in parallel now
+  //DoFRenumbering::downstream(dof_handler, direction, true);
+
 
   pcout << std::endl
         << "============DofHandler===============" << std::endl
@@ -717,10 +724,16 @@ void LayerMovementProblem<dim>::solve_Sigma()
   //  LA::MPI::PreconditionAMG::AdditionalData data;
   //  LA::MPI::PreconditionSSOR preconditioner;
   //  LA::MPI::PreconditionSSOR::AdditionalData data;
-  LA::MPI::PreconditionJacobi preconditioner;
-  LA::MPI::PreconditionJacobi::AdditionalData data;
-
-  // data.symmetric_operator = false;
+  //LA::MPI::PreconditionJacobi preconditioner;
+  //LA::MPI::PreconditionJacobi::AdditionalData data;
+  //LA::PreconditionSSOR preconditioner;
+  //does not compile with this
+  //LA::MPI::PreconditionBlockJacobi preconditioner;
+  //LA::PreconditionBlockJacobi preconditioner;
+  //does with this
+  PETScWrappers::PreconditionBlockJacobi preconditioner;
+  PETScWrappers::PreconditionBlockJacobi::AdditionalData data;
+  //data.symmetric_operator = false;
   preconditioner.initialize(system_matrix_Sigma, data);
 
   solver.solve(system_matrix_Sigma, completely_distributed_solution, rhs_Sigma, preconditioner);
@@ -944,6 +957,10 @@ void LayerMovementProblem<dim>::setup_material_configuration()
     if (id_sum0 <= 0) {
       cell->set_material_id(0);
     }
+    else
+      {
+        cell->set_material_id(1);
+      }
   } // end cell loop
 }
 
@@ -966,6 +983,8 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
   Point<dim> point_for_depth;
+
+  SedimentationRate<dim> sedRate;
 
   std::vector<double> pressure_at_quad(n_q_points);
   std::vector<double> overburden_at_quad(n_q_points);
@@ -990,7 +1009,11 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
     const double initial_permeability = material_data.get_surface_permeability(cell->material_id());
 
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-      Assert(0 <= pressure_at_quad[q_point], ExcInternalError());
+//        if(0 <= pressure_at_quad[q_point]){
+//            output_vectors();
+//            abort();
+//          }
+      Assert( -0.1 <pressure_at_quad[q_point], ExcInternalError());
       Assert(0 < overburden_at_quad[q_point], ExcInternalError());
 
       point_for_depth = fe_values.quadrature_point(q_point);
@@ -1017,9 +1040,10 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
       const double diff_coeff_at_quad = (perm_k / material_data.fluid_viscosity);
       const double rhs_coeff = material_data.get_compressibility_coefficient(cell->material_id()) * phi / (1 - phi);
-      const double rhs_at_quad = -1 * dphidt / (1 - phi);
-      //            rhs_coeff * (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
-      //            9.8 * material_data.fluid_density * (0.2);
+      const double rhs_at_quad = rhs_coeff * (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
+         9.8 * material_data.fluid_density * (inflow_rate); //TODO replace with sedRate
+
+      Assert (0 <= rhs_at_quad, ExcInternalError());
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
@@ -1320,9 +1344,9 @@ void LayerMovementProblem<dim>::output_vectors()
   data_out.add_data_vector(locally_relevant_solution_Sigma, "Sigma");
   data_out.add_data_vector(old_locally_relevant_solution_Sigma, "old_Sigma");
   data_out.add_data_vector(locally_relevant_solution_F, "F");
-  data_out.add_data_vector(system_rhs_P, "s_rhs_P");
-  data_out.add_data_vector(rhs_F, "rhs_F" );
-  data_out.add_data_vector(rhs_Sigma, "rhs_s");
+//  data_out.add_data_vector(system_rhs_P, "s_rhs_P");
+//  data_out.add_data_vector(rhs_F, "rhs_F" );
+//  data_out.add_data_vector(rhs_Sigma, "rhs_s");
 
   //  LA::MPI::Vector material_kind;
   //  material_kind.reinit(locally_owned_dofs, mpi_communicator);
@@ -1383,7 +1407,7 @@ void LayerMovementProblem<dim>::run()
   // we use some hardcode defaults for now
 
   const double min_h = GridTools::minimal_cell_diameter(triangulation) / std::sqrt(2);
-  const double cfl = 0.9;
+  const double cfl = 0.5;
   const double umax = SedRate;  //max_sedRate
   time_step = cfl * min_h / umax;
   // pcout<<"min_h"<<min_h;
