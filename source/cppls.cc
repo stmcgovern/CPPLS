@@ -80,50 +80,39 @@ public:
     void run();
 
 private:
-    // Member Data
-    // runtime parameters
-    const CPPLS::Parameters parameters;
-    const CPPLS::MaterialData material_data;
 
-    // mpi communication
-    MPI_Comm mpi_communicator;
-    const unsigned int n_mpi_processes;
-    const unsigned int this_mpi_process;
+  // Member Data
+  // runtime parameters
+  const CPPLS::Parameters parameters;
+  const CPPLS::MaterialData material_data;
 
-    // mesh
-    parallel::distributed::Triangulation<dim> triangulation;
+  // mpi communication
+  MPI_Comm mpi_communicator;
+  const unsigned int n_mpi_processes;
+  const unsigned int this_mpi_process;
 
-    // FE basis space (for P,T, F, and sigma)
-    // LS separate
+  // mesh
+  parallel::distributed::Triangulation<dim> triangulation;
 
-    // pressure
-    int degree {2};
-    DoFHandler<dim> dof_handler;
-    FE_Q<dim> fe;
-    IndexSet locally_owned_dofs;
-    IndexSet locally_relevant_dofs;
+  // FE basis space (for P,T, F, and sigma)
+  // LS separate
 
-    //  // temperature
-    //  int degree_T{1};
-    //  DoFHandler<dim> dof_handler_T;
-    //  FE_Q<dim> fe_T;
-    //  IndexSet locally_owned_dofs_T;
-    //  IndexSet locally_relevant_dofs_T;
+  // pressure
+  int degree;
+  DoFHandler<dim> dof_handler;
+  FE_Q<dim> fe;
+  IndexSet locally_owned_dofs;
+  IndexSet locally_relevant_dofs;
 
-    // level set (can multiple level sets use the same of below? probably not IndexSets)std::vector<IndexSets>
-    int degree_LS {2};
-    DoFHandler<dim> dof_handler_LS;
-    FE_Q<dim> fe_LS;
-    IndexSet locally_owned_dofs_LS;
-    IndexSet locally_relevant_dofs_LS;
 
-    //  int degree_quad_data{2};
-    //  DoFHandler<dim> dof_handler_Q;
-    //  FE_DGQ<dim> fe_DGQ_Q;
-    //  IndexSet locally_owned_dofs_Q;
+  int degree_LS;
+  DoFHandler<dim> dof_handler_LS;
+  FE_Q<dim> fe_LS;
+  IndexSet locally_owned_dofs_LS;
+  IndexSet locally_relevant_dofs_LS;
 
-    // output stream where only mpi rank 0 output gets to stdout
-    ConditionalOStream pcout;
+  // output stream where only mpi rank 0 output gets to stdout
+  ConditionalOStream pcout;
 
     TimerOutput computing_timer;
 
@@ -162,7 +151,7 @@ private:
 
     // Speed function
     LA::MPI::Vector locally_relevant_solution_F;
-    LA::MPI::Vector old_locally_relevant_solution_F; // probably not useful
+
     // this is 0 now
     LA::MPI::Vector locally_relevant_solution_Wxy;
 
@@ -190,17 +179,6 @@ private:
 
     LA::MPI::Vector rhs_F;
 
-    // Physical Vectors
-    // Compute these algebraic relations on the fly
-
-    //  LA::MPI::Vector bulkdensity;
-    //  LA::MPI::Vector porosity;
-    //  LA::MPI::Vector old_porosity;
-    //  LA::MPI::Vector permeability;
-
-    //  LA::MPI::Vector bulkheat_capacity;
-    //  LA::MPI::Vector thermal_conductivity;
-
     // Sparse Matrices
     LA::MPI::SparseMatrix laplace_matrix_P;
     LA::MPI::SparseMatrix mass_matrix_P;
@@ -221,8 +199,6 @@ private:
     std::vector<std::unique_ptr<LevelSetSolver<dim>>> layers;
     std::vector<std::unique_ptr<LA::MPI::Vector>> layers_solutions;
     int n_layers;
-
-
 
 
     // Member Functions
@@ -285,28 +261,29 @@ private:
 
 template <int dim>
 LayerMovementProblem<dim>::LayerMovementProblem(const CPPLS::Parameters& parameters,
-        const CPPLS::MaterialData& material_data)
-    : parameters(parameters)
-    , material_data(material_data)
-    , mpi_communicator(MPI_COMM_WORLD)
-    , n_mpi_processes {Utilities::MPI::n_mpi_processes(mpi_communicator)}
-, this_mpi_process {Utilities::MPI::this_mpi_process(mpi_communicator)}
-, triangulation(mpi_communicator,
-                typename Triangulation<dim>::MeshSmoothing(Triangulation<dim>::smoothing_on_refinement |
-                        Triangulation<dim>::smoothing_on_coarsening))
-, fe(degree)
-, fe_LS(degree_LS)
-, dof_handler(triangulation)
-, dof_handler_LS(triangulation)
-, pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator) == 0))
-, computing_timer(mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times)
-/*, time_step((parameters.stop_time - parameters.start_time) / parameters.n_time_steps)*/
-, current_time {parameters.start_time}
-, final_time {parameters.stop_time}
-, output_number {0}
-, theta(parameters.theta)
-
-{};
+                                                const CPPLS::MaterialData& material_data)
+  : parameters(parameters)
+  , material_data(material_data)
+  , mpi_communicator(MPI_COMM_WORLD)
+  , n_mpi_processes{Utilities::MPI::n_mpi_processes(mpi_communicator)}
+  , this_mpi_process{Utilities::MPI::this_mpi_process(mpi_communicator)}
+  , triangulation(mpi_communicator,
+                  typename Triangulation<dim>::MeshSmoothing(Triangulation<dim>::smoothing_on_refinement |
+                                                             Triangulation<dim>::smoothing_on_coarsening))
+  , degree(parameters.degree)
+  , degree_LS(parameters.degree_LS)
+  , fe(degree)
+  , fe_LS(degree_LS)
+  , dof_handler(triangulation)
+  , dof_handler_LS(triangulation)
+  , pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator) == 0))
+  , computing_timer(mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times)
+  , time_step((parameters.stop_time - parameters.start_time) / parameters.n_time_steps)
+  , current_time{parameters.start_time}
+  , final_time{parameters.stop_time}
+  , output_number{0}
+  , theta(parameters.theta)
+        {};
 
 // Destructor
 template <int dim>
@@ -547,7 +524,7 @@ void LayerMovementProblem<dim>::setup_system_F()
 
     // vector setup
     locally_relevant_solution_F.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
-    old_locally_relevant_solution_F.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+
     completely_distributed_solution_F.reinit(locally_owned_dofs, mpi_communicator);
 
     rhs_F.reinit(locally_owned_dofs, mpi_communicator);
@@ -1524,6 +1501,7 @@ int LayerMovementProblem<dim>::active_layers_in_time (double time)
 template <int dim>
 void LayerMovementProblem<dim>::run()
 {
+
     // common mesh
     setup_geometry();
     // common dofhandler, except for LS
@@ -1537,17 +1515,20 @@ void LayerMovementProblem<dim>::run()
     setup_system_LS();
 
     initial_conditions();
-    //TODO
+    const unsigned int output_interval= parameters.output_interval;
+
+
     //const SedimentationRate SedRate(parameters);
-    const double SedRate = 3.15e-11;
+    const double base_sedimentation_rate = parameters.base_sedimentation_rate;
     // initialize level set solver
     // we use some hardcode defaults for now
 
     const double min_h = GridTools::minimal_cell_diameter(triangulation) / std::sqrt(2);
-    const double cfl = 0.5;
-    const double umax = SedRate;  //max_sedRate
+    const double cfl = parameters.cfl;
+    const double umax = base_sedimentation_rate;  //max_sedRate
     time_step = cfl * min_h / umax;
     // pcout<<"min_h"<<min_h;
+
 
     const double cK = 1.0;//compression coeff
     const double cE = 1.0;//entropy-visc coeff (non-dimensional cf. p 452 (around eq 18) Guermond, 2017)
@@ -1556,8 +1537,15 @@ void LayerMovementProblem<dim>::run()
     const unsigned int TIME_INTEGRATION = 1; // corresponds to SSP33
 
 
-    n_layers=6;
+    n_layers=parameters.n_layers;
     int n_active_layers=0;
+
+
+    // BOUNDARY CONDITIONS FOR LS
+    get_boundary_values_LS(boundary_values_id_LS, boundary_values_LS);
+
+    locally_relevant_solution_F = -1*base_sedimentation_rate;
+
 
     //assume locally_relevant_solution_LS_0 is a good initial value for all level sets
 
@@ -1573,16 +1561,11 @@ void LayerMovementProblem<dim>::run()
         layers[i]->set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
         layers[i]->initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Wxy,
                                      locally_relevant_solution_F);
-    }
-
-    // For the first step, F is just the sedimentation rate
-
-    locally_relevant_solution_F = -0.1*SedRate;
+     }
 
 
 
-
-    //  // TIME STEPPING
+    // TIME STEPPING
     timestep_number = 1;
     for (double time = time_step; time <= final_time; time += time_step, ++timestep_number) {
         pcout << "Time step " << timestep_number << " at t=" << time << std::endl;
@@ -1631,13 +1614,14 @@ void LayerMovementProblem<dim>::run()
 
         //    if (get_output && time - (output_number)*output_time > 0)
         //      output_results();
-        if (timestep_number % 1 == 0) {
+        if (timestep_number % output_interval == 0) {
             display_vectors();
         }
         // output_vectors_Q();
         prepare_next_time_step();
     } // end of time loop
 }
+
 
 } // end namespace CPPLS
 

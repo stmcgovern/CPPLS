@@ -1,26 +1,61 @@
 subsection Geometry
-  set box_size = 1024
+
+#spatial dimension (2,3)
+  set dimension = 2
+#side length of the square/cube (m)
+  set box_size = 1000
+#set the sedimentation rate (m/s) - TODO:individual layer speeds can vary around this
+  set base_sedimentation_rate = 3.15e-11
 end
 
-subsection Physical Parameters
-  set diffusion_coefficient = 1.0e-3
-  set reaction_coefficient = 1.0e-4
-  set time_dependent_forcing = true
+subsection Layer Parameters
+#number of sedimentary layers, not including basement
+  set n_layers = 4
+
+# a sequence of rock_types to be added
+# length of array must be = n_layers
+  set layer_order_by_type = (1,3,2,1)
+
+# a division of the time period by rock type
+# length of array must be = n_layers, elements must sum =1
+  set fraction_of_time_interval = (1/3, 1/6, 1/4, 1/4)
 end
 
 subsection Finite Element
-  set initial_refinement_level = 7
-  set max_refinement_level = 4
-  set fe_order = 2
+
+#number of initial global refinements - note: (2^dim)^initial_refinement_level = n_cells
+  set initial_refinement_level = 5
+#finite element degree of the physical quantity dof_handler, FE_Q
+  set degree = 2
+#finite element degree of the level set dof_handler, FE_Q
+  set degree_LS = 2
 end
 
 subsection Time Step
+#start time of simulation (s)
   set start_time = 0.0
-  set stop_time = 3.15e13
+
+#end time of simulation (s)  - note: 3.147e15 s = 1 Ma
+  set stop_time = 3.147e15
+#not used
   set n_time_steps = 200
+# for theta scheme for time stepping in P and T,
+# 1/2 -> Crank-Nicolson,  1 -> implicit Euler, 0 -> Explicit Euler
+  set theta = 0.5
+# stability condition for the (SSP3) explicit time stepping in LS
+  set cfl = 0.5
 end
 
+subsection Nonlinear Solver Picard
+# solution tolerance
+  set nl_tol = 1e-8
+# maximum iterations
+  set maxiter = 20
+
+
 subsection Output
-  set save_interval = 1
+#ouput solution vectors every x time steps
+  set output_interval = 1
+#not used
   set patch_level = 1
 end

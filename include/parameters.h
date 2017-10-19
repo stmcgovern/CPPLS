@@ -18,22 +18,28 @@ using namespace dealii;
 class Parameters
 {
 public:
+    unsigned int dimension;
     double box_size;
-    double theta;
+    double base_sedimentation_rate;
+    unsigned int n_layers;
+
 
     double diffusion_coefficient;
     double reaction_coefficient;
     bool time_dependent_forcing;
 
     unsigned int initial_refinement_level;
-    unsigned int max_refinement_level;
-    unsigned int fe_order;
+    unsigned int degree;
+    unsigned int degree_LS;
 
     double start_time;
     double stop_time;
     unsigned int n_time_steps;
+    double theta;
+    double cfl;
 
-    unsigned int save_interval;
+
+    unsigned int output_interval;
     unsigned int patch_level;
 
     void read_parameter_file(const std::string &file_name);
