@@ -25,6 +25,7 @@ using namespace dealii::LinearAlgebraPETSc;
 #include <deal.II/lac/solver_bicgstab.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/sparsity_tools.h>
+//#include <deal.II/lac/petsc_precondition.h>
 
 //#include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_generator.h>
@@ -291,7 +292,7 @@ LayerMovementProblem<dim>::LayerMovementProblem(const CPPLS::Parameters& paramet
   , dof_handler_LS(triangulation)
   , pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator) == 0))
   , computing_timer(mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times)
-  , time_step((parameters.stop_time - parameters.start_time) / parameters.n_time_steps)
+  /*, time_step((parameters.stop_time - parameters.start_time) / parameters.n_time_steps)*/
   , current_time{parameters.start_time}
   , final_time{parameters.stop_time}
   , output_number{0}
@@ -455,8 +456,10 @@ void LayerMovementProblem<dim>::setup_system_Sigma()
   DoFTools::make_hanging_node_constraints(dof_handler, constraints_Sigma);
 
   // inflow bc at top
-  VectorTools::interpolate_boundary_values(dof_handler, 3, ConstantFunction<dim>(inflow_rate),
-                                           constraints_Sigma); // TODO get rid of numbers!
+//VectorTools::interpolate_boundary_values(dof_handler, 3, ConstantFunction<dim>(inflow_rate*15000),
+//                                           constraints_Sigma); // TODO put in sedimentation(x,y,t)
+  //VectorTools::interpolate_boundary_values(dof_handler, 3, SedimentationRate<dim>(),
+   //                                     constraints_Sigma);
   constraints_Sigma.close();
 
   // create sparsity pattern
@@ -493,8 +496,8 @@ void LayerMovementProblem<dim>::setup_system_F()
   DoFTools::make_hanging_node_constraints(dof_handler, constraints_F);
 
   // inflow bc at top
-  VectorTools::interpolate_boundary_values(dof_handler, 3, ConstantFunction<dim>(inflow_rate),
-                                           constraints_F); // TODO put in SedimentationRate
+  VectorTools::interpolate_boundary_values(dof_handler, 3, SedimentationRate<dim>(),
+                                           constraints_F);
   constraints_F.close();
 
   // create sparsity pattern
@@ -551,26 +554,33 @@ template <int dim>
 void LayerMovementProblem<dim>::initial_conditions()
 {
   // Precondition: the non/ghosted vectors have been initialized, and constraints closed (in setup functions)
+  //For P, T, 0 initial values
 
   // init condition for P (TODO should use call to VectorTools::interpolate)
   completely_distributed_solution_P = 0;
-  VectorTools::interpolate_boundary_values(dof_handler, /*top boundary*/ 3, ZeroFunction<dim>(), constraints_P);
+  //VectorTools::interpolate_boundary_values(dof_handler, /*top boundary*/ 3, ZeroFunction<dim>(), constraints_P);
+  VectorTools::interpolate(dof_handler, ZeroFunction<dim>(), completely_distributed_solution_P);
   constraints_P.distribute(completely_distributed_solution_P);
   locally_relevant_solution_P = completely_distributed_solution_P;
 
   // init condition for T   //TODO
   completely_distributed_solution_T = 0;
-  VectorTools::interpolate_boundary_values(dof_handler, /*top boundary*/ 3, ZeroFunction<dim>(), constraints_T);
+  //VectorTools::interpolate_boundary_values(dof_handler, /*top boundary*/ 3, ZeroFunction<dim>(), constraints_T);
+  VectorTools::interpolate(dof_handler, ZeroFunction<dim>(),completely_distributed_solution_T);
   constraints_T.distribute(completely_distributed_solution_T);
   locally_relevant_solution_T = completely_distributed_solution_T;
 
   // init condition for LS
   // all the others will share this
   completely_distributed_solution_LS_0 = 0;
-  VectorTools::interpolate(dof_handler_LS, Initial_LS<dim>(0.0005, parameters.box_size),
+  const double min_h = GridTools::minimal_cell_diameter(triangulation) / std::sqrt(2);
+  pcout <<"min_h is:"<<min_h<<std::endl;
+
+  VectorTools::interpolate(dof_handler_LS, Initial_LS<dim>(min_h, parameters.box_size),
                            completely_distributed_solution_LS_0);
   constraints_LS.distribute(completely_distributed_solution_LS_0);
   locally_relevant_solution_LS_0 = completely_distributed_solution_LS_0;
+  output_vectors_LS();
 }
 
 template <int dim>
@@ -623,7 +633,7 @@ void LayerMovementProblem<dim>::assemble_Sigma()
   std::vector<double> pressure_at_quad(n_q_points);
 
   Point<dim> point_for_depth;
-  SedimentationRate<dim> sedRate;
+  SedimentationRate<dim> sedRate; // rate is a negative quantity
 
   std::vector<double> sedimentation_rate(n_q_points);
 
@@ -648,14 +658,15 @@ void LayerMovementProblem<dim>::assemble_Sigma()
 
     cell_rhs = 0;
     cell_matrix = 0;
-    const double delta = 0.1 * cell->diameter();
+    const double delta = 1 * cell->diameter();
 
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
       point_for_depth = fe_values.quadrature_point(q_point);
       const double hydrostatic = 9.81 * material_data.fluid_density *
                                  (parameters.box_size - point_for_depth[1]); // TODO make this dim independent
-      const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
-                                  compaction_coefficient, hydrostatic);
+    //  const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
+     //                             compaction_coefficient, hydrostatic);
+      const double phi = 0.61;
       Assert(0 < hydrostatic, ExcInternalError());
       Assert(0 < phi, ExcInternalError());
       Assert(phi < 1, ExcInternalError());
@@ -663,9 +674,15 @@ void LayerMovementProblem<dim>::assemble_Sigma()
       const double rho_b = bulkdensity(phi, material_data.fluid_density, rock_density);
 
       rhs_at_quad[q_point] = 9.81 * rho_b;
+      pcout<<rho_b<<" "<<advection_directions[q_point][1];
+
+      //this should point "down"
+      Assert( 0 > advection_directions[q_point][1], ExcInternalError());
+
+      Assert ( 0 <sedimentation_rate[q_point], ExcInternalError());
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-        for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+        for (unsigned int j = 0; j < dofs_per_cell; ++j)
 
           cell_matrix(i, j) += ((advection_directions[q_point] * fe_values.shape_grad(j, q_point) *
                                  (fe_values.shape_value(i, q_point) +
@@ -675,12 +692,14 @@ void LayerMovementProblem<dim>::assemble_Sigma()
           cell_rhs(i) += (fe_values.shape_value(i, q_point) +
                           delta * (advection_directions[q_point] * fe_values.shape_grad(i, q_point))) *
                          rhs_at_quad[q_point] * fe_values.JxW(q_point);
-        } // end j
+
       }   // end i
     }     // end q
 
-    // For the inflow boundary term
+    //Rather than implement the boundary term, we specify as an essential condition on the test space
+    //So it is handled in a call to the constraints_Sigma
 
+    // For the inflow boundary term
     for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face)
       if (cell->face(face)->at_boundary()) {
         fe_face_values.reinit(cell, face);
@@ -1344,6 +1363,11 @@ void LayerMovementProblem<dim>::output_vectors()
   data_out.add_data_vector(locally_relevant_solution_Sigma, "Sigma");
   data_out.add_data_vector(old_locally_relevant_solution_Sigma, "old_Sigma");
   data_out.add_data_vector(locally_relevant_solution_F, "F");
+
+  //abuse the temp_locally_relevant_Sigma ghosted vector to output non-ghosted rhs_Sigma
+  temp_locally_relevant_solution_Sigma=rhs_Sigma;
+  data_out.add_data_vector(old_locally_relevant_solution_Sigma, "rhsSigma");
+
 //  data_out.add_data_vector(system_rhs_P, "s_rhs_P");
 //  data_out.add_data_vector(rhs_F, "rhs_F" );
 //  data_out.add_data_vector(rhs_Sigma, "rhs_s");
@@ -1400,7 +1424,7 @@ void LayerMovementProblem<dim>::run()
   setup_system_LS();
 
   initial_conditions();
-
+  //TODO
   //const SedimentationRate SedRate(parameters);
   const double SedRate = 3.15e-11;
   // initialize level set solver
@@ -1424,19 +1448,24 @@ void LayerMovementProblem<dim>::run()
   get_boundary_values_LS(boundary_values_id_LS, boundary_values_LS);
   level_set_solver0.set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
 
+
+   locally_relevant_solution_F = -1*SedRate;
+
+
   // set INITIAL CONDITION within TRANSPORT PROBLEM
   level_set_solver0.initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Wxy,
                                       locally_relevant_solution_F);
 
   // For the first step, F is just the sedimentation rate
 
-  locally_relevant_solution_F = -1*SedRate;
+  //locally_relevant_solution_F = -1*SedRate;
 
   //  // TIME STEPPING
   timestep_number = 1;
   for (double time = time_step; time <= final_time; time += time_step, ++timestep_number) {
     pcout << "Time step " << timestep_number << " at t=" << time << std::endl;
-
+    pcout<< " % complete:"<<100*(timestep_number*time_step)/final_time<<std::endl; //for constant time_step
+    Assert (time_step< final_time, ExcNotImplemented());
     // Solve for F the scalar speed function which is passed to the LevelSetSolver
     // which expects the vector (wx,wy) or (wx,wy,wz)
     // dim=2 we pass F as wy and dim=3 we pass F as wz with 0 otherwise
@@ -1470,8 +1499,8 @@ void LayerMovementProblem<dim>::run()
     //    forge_system_T();
     //    solve_time_step_T();
 
-    assemble_F();
-    solve_F();
+//    assemble_F();
+//    solve_F();
 
     //    if (get_output && time - (output_number)*output_time > 0)
     //      output_results();

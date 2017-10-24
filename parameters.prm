@@ -1,5 +1,5 @@
 subsection Geometry
-  set box_size = 1
+  set box_size = 1024
 end
 
 subsection Physical Parameters
@@ -9,7 +9,7 @@ subsection Physical Parameters
 end
 
 subsection Finite Element
-  set initial_refinement_level = 5
+  set initial_refinement_level = 7 
   set max_refinement_level = 4
   set fe_order = 2
 end

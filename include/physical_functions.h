@@ -69,7 +69,7 @@ double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) co
       double y = p[1];
 
       //return std::abs(sin(x));
-        return (3.15e-11);
+        return (-3.15e-11);
       // return return_value;
 
       break;
@@ -148,7 +148,7 @@ public:
 template <int dim>
 double Initial_LS<dim>::value(const Point<dim>& p, const unsigned int) const
 {
-
+  double return_value;
   switch (dim) {
     case 1: {
       Assert(false, ExcNotImplemented());
@@ -159,7 +159,12 @@ double Initial_LS<dim>::value(const Point<dim>& p, const unsigned int) const
       double x = p[0];
       double y = p[1];
       // std::cout<<std::tanh((y- 0.9)/sharpness)<<" "<<std::endl;
-      return std::tanh((y - (box_size_z - (box_size_z / 100))) / sharpness);
+
+      return_value = std::tanh((y - (box_size_z - (box_size_z / 100))) / sharpness);
+      Assert (return_value <= 1 ,ExcInternalError());
+      Assert (return_value >= -1 ,ExcInternalError());
+      return return_value;
+
       // return std::tanh((y-0.99)/sharpness);
       break;
     }
