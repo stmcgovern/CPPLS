@@ -458,8 +458,8 @@ void LayerMovementProblem<dim>::setup_system_Sigma()
   // inflow bc at top
 //VectorTools::interpolate_boundary_values(dof_handler, 3, ConstantFunction<dim>(inflow_rate*15000),
 //                                           constraints_Sigma); // TODO put in sedimentation(x,y,t)
-  //VectorTools::interpolate_boundary_values(dof_handler, 3, SedimentationRate<dim>(),
-   //                                     constraints_Sigma);
+  VectorTools::interpolate_boundary_values(dof_handler, 3, ZeroFunction<dim>(),
+                                        constraints_Sigma);
   constraints_Sigma.close();
 
   // create sparsity pattern
@@ -664,9 +664,9 @@ void LayerMovementProblem<dim>::assemble_Sigma()
       point_for_depth = fe_values.quadrature_point(q_point);
       const double hydrostatic = 9.81 * material_data.fluid_density *
                                  (parameters.box_size - point_for_depth[1]); // TODO make this dim independent
-    //  const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
-     //                             compaction_coefficient, hydrostatic);
-      const double phi = 0.61;
+      //const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
+       //                           compaction_coefficient, hydrostatic);
+      const double phi = 0.5;
       Assert(0 < hydrostatic, ExcInternalError());
       Assert(0 < phi, ExcInternalError());
       Assert(phi < 1, ExcInternalError());
@@ -674,12 +674,12 @@ void LayerMovementProblem<dim>::assemble_Sigma()
       const double rho_b = bulkdensity(phi, material_data.fluid_density, rock_density);
 
       rhs_at_quad[q_point] = 9.81 * rho_b;
-      pcout<<rho_b<<" "<<advection_directions[q_point][1];
+
 
       //this should point "down"
       Assert( 0 > advection_directions[q_point][1], ExcInternalError());
 
-      Assert ( 0 <sedimentation_rate[q_point], ExcInternalError());
+      //Assert ( 0 <sedimentation_rate[q_point], ExcInternalError());
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
         for (unsigned int j = 0; j < dofs_per_cell; ++j)
@@ -700,24 +700,24 @@ void LayerMovementProblem<dim>::assemble_Sigma()
     //So it is handled in a call to the constraints_Sigma
 
     // For the inflow boundary term
-    for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face)
-      if (cell->face(face)->at_boundary()) {
-        fe_face_values.reinit(cell, face);
+//    for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face)
+//      if (cell->face(face)->at_boundary()) {
+//        fe_face_values.reinit(cell, face);
 
-        advection_field.value_list(fe_face_values.get_quadrature_points(), face_advection_directions);
-        for (unsigned int q_point = 0; q_point < n_face_q_points; ++q_point)
-          // the following determines whether inflow or not
-          if (fe_face_values.normal_vector(q_point) * face_advection_directions[q_point] < 0)
-            for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-              for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                cell_matrix(i, j) -= (face_advection_directions[q_point] * fe_face_values.normal_vector(q_point) *
-                                      fe_face_values.shape_value(i, q_point) * fe_face_values.shape_value(j, q_point) *
-                                      fe_face_values.JxW(q_point));
-              cell_rhs(i) -=
-                  (face_advection_directions[q_point] * fe_face_values.normal_vector(q_point) *
-                   sedimentation_rate[q_point] * fe_face_values.shape_value(i, q_point) * fe_face_values.JxW(q_point));
-            }
-      }
+//        advection_field.value_list(fe_face_values.get_quadrature_points(), face_advection_directions);
+//        for (unsigned int q_point = 0; q_point < n_face_q_points; ++q_point)
+//          // the following determines whether inflow or not
+//          if (fe_face_values.normal_vector(q_point) * face_advection_directions[q_point] < 0)
+//            for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+//              for (unsigned int j = 0; j < dofs_per_cell; ++j)
+//                cell_matrix(i, j) -= (face_advection_directions[q_point] * fe_face_values.normal_vector(q_point) *
+//                                      fe_face_values.shape_value(i, q_point) * fe_face_values.shape_value(j, q_point) *
+//                                      fe_face_values.JxW(q_point));
+//              cell_rhs(i) -=
+//                  (face_advection_directions[q_point] * fe_face_values.normal_vector(q_point) *
+//                   sedimentation_rate[q_point] * fe_face_values.shape_value(i, q_point) * fe_face_values.JxW(q_point));
+//            }
+//      }
 
     cell->get_dof_indices(local_dof_indices); // distribute to correct globally numbered vector
 
@@ -736,7 +736,7 @@ void LayerMovementProblem<dim>::solve_Sigma()
 
   LA::MPI::Vector completely_distributed_solution(locally_owned_dofs, mpi_communicator);
 
-  SolverControl solver_control(dof_handler.n_dofs(), 1e-12 * rhs_Sigma.l2_norm());
+  SolverControl solver_control(dof_handler.n_dofs(), 1e-6 * rhs_Sigma.l2_norm());
   //  LA::SolverBicgstab solver(solver_control, mpi_communicator);
   LA::SolverGMRES solver(solver_control, mpi_communicator);
   //  LA::MPI::PreconditionAMG preconditioner;
@@ -824,7 +824,7 @@ void LayerMovementProblem<dim>::assemble_F()
 
     cell_rhs = 0;
     cell_matrix = 0;
-    const double delta = 0.1 * cell->diameter();
+    const double delta = 1 * cell->diameter();
 
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
       point_for_depth = fe_values.quadrature_point(q_point);
@@ -845,13 +845,13 @@ void LayerMovementProblem<dim>::assemble_F()
 
       const double dphidt = (phi - old_phi) / time_step;
 
-      // Assert dphidt <1;
+
       Assert(dphidt <= 0, ExcInternalError());
 
-      rhs_at_quad[q_point] = dphidt / (1 - phi);
+      rhs_at_quad[q_point] = -1*dphidt / (1 - phi);
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-        for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+        for (unsigned int j = 0; j < dofs_per_cell; ++j)
 
           cell_matrix(i, j) += ((advection_directions[q_point] * fe_values.shape_grad(j, q_point) *
                                  (fe_values.shape_value(i, q_point) +
@@ -861,30 +861,30 @@ void LayerMovementProblem<dim>::assemble_F()
           cell_rhs(i) += (fe_values.shape_value(i, q_point) +
                           delta * (advection_directions[q_point] * fe_values.shape_grad(i, q_point))) *
                          rhs_at_quad[q_point] * fe_values.JxW(q_point);
-        } // end j
+
       }   // end i
     }     // end q
 
     // For the inflow boundary term
 
-    for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face)
-      if (cell->face(face)->at_boundary()) {
-        fe_face_values.reinit(cell, face);
+//    for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face)
+//      if (cell->face(face)->at_boundary()) {
+//        fe_face_values.reinit(cell, face);
 
-        advection_field.value_list(fe_face_values.get_quadrature_points(), face_advection_directions);
-        for (unsigned int q_point = 0; q_point < n_face_q_points; ++q_point)
-          // the following determines whether inflow or not
-          if (fe_face_values.normal_vector(q_point) * face_advection_directions[q_point] < 0)
-            for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-              for (unsigned int j = 0; j < dofs_per_cell; ++j)
-                cell_matrix(i, j) -= (face_advection_directions[q_point] * fe_face_values.normal_vector(q_point) *
-                                      fe_face_values.shape_value(i, q_point) * fe_face_values.shape_value(j, q_point) *
-                                      fe_face_values.JxW(q_point));
-              cell_rhs(i) -=
-                  (face_advection_directions[q_point] * fe_face_values.normal_vector(q_point) *
-                   sedimentation_rate[q_point] * fe_face_values.shape_value(i, q_point) * fe_face_values.JxW(q_point));
-            }
-      }
+//        advection_field.value_list(fe_face_values.get_quadrature_points(), face_advection_directions);
+//        for (unsigned int q_point = 0; q_point < n_face_q_points; ++q_point)
+//          // the following determines whether inflow or not
+//          if (fe_face_values.normal_vector(q_point) * face_advection_directions[q_point] < 0)
+//            for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+//              for (unsigned int j = 0; j < dofs_per_cell; ++j)
+//                cell_matrix(i, j) -= (face_advection_directions[q_point] * fe_face_values.normal_vector(q_point) *
+//                                      fe_face_values.shape_value(i, q_point) * fe_face_values.shape_value(j, q_point) *
+//                                      fe_face_values.JxW(q_point));
+//              cell_rhs(i) -=
+//                  (face_advection_directions[q_point] * fe_face_values.normal_vector(q_point) *
+//                   sedimentation_rate[q_point] * fe_face_values.shape_value(i, q_point) * fe_face_values.JxW(q_point));
+//            }
+//      }
 
     cell->get_dof_indices(local_dof_indices); // distribute to correct globally numbered vector
 
@@ -902,15 +902,17 @@ void LayerMovementProblem<dim>::solve_F()
 
   LA::MPI::Vector completely_distributed_solution(locally_owned_dofs, mpi_communicator);
 
-  SolverControl solver_control(dof_handler.n_dofs(), 1e-12 * rhs_F.l2_norm());
+  SolverControl solver_control(dof_handler.n_dofs(), 1e-6 * rhs_F.l2_norm());
   //  LA::SolverBicgstab solver(solver_control, mpi_communicator);
   LA::SolverGMRES solver(solver_control, mpi_communicator);
   //  LA::MPI::PreconditionAMG preconditioner;
   //  LA::MPI::PreconditionAMG::AdditionalData data;
   //  LA::MPI::PreconditionSSOR preconditioner;
   //  LA::MPI::PreconditionSSOR::AdditionalData data;
-  LA::MPI::PreconditionJacobi preconditioner;
-  LA::MPI::PreconditionJacobi::AdditionalData data;
+  PETScWrappers::PreconditionBlockJacobi preconditioner;
+  PETScWrappers::PreconditionBlockJacobi::AdditionalData data;
+//  LA::MPI::PreconditionJacobi preconditioner;
+//  LA::MPI::PreconditionJacobi::AdditionalData data;
 
   // data.symmetric_operator = false;
   preconditioner.initialize(system_matrix_F, data);
@@ -1055,7 +1057,9 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
       Assert(old_phi < 1, ExcInternalError());
 
       const double dphidt = (phi - old_phi) / time_step;
-      Assert(dphidt <= 0, ExcInternalError());
+      if(dphidt >=0 ){pcout<<" dphidt: "<<dphidt<<std::endl;}
+
+      //Assert(dphidt <= 0, ExcInternalError());
 
       const double diff_coeff_at_quad = (perm_k / material_data.fluid_viscosity);
       const double rhs_coeff = material_data.get_compressibility_coefficient(cell->material_id()) * phi / (1 - phi);
@@ -1072,10 +1076,10 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
           cell_mass_matrix(i, j) +=
               (fe_values.shape_value(i, q_point) * fe_values.shape_value(j, q_point) * fe_values.JxW(q_point));
+          } //end of j
 
           cell_rhs(i) += (rhs_at_quad * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
-        }
-      }
+        } //end of i
     } // end q
 
     cell->get_dof_indices(local_dof_indices);
@@ -1216,11 +1220,12 @@ void LayerMovementProblem<dim>::assemble_matrices_T()
 
           cell_mass_matrix(i, j) += (rho_b * bulk_hc * fe_values.shape_value(i, q_point) *
                                      fe_values.shape_value(j, q_point) * fe_values.JxW(q_point));
+           } // end j
 
           //          cell_rhs(i) += (right_hand_side.value(fe_values.quadrature_point(q_point)) *
           //                          fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
           cell_rhs(i) += (rhs_at_quad * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
-        } // end j
+
       }   // end i
     }     // end q
 
@@ -1449,16 +1454,14 @@ void LayerMovementProblem<dim>::run()
   level_set_solver0.set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
 
 
-   locally_relevant_solution_F = -1*SedRate;
+  // locally_relevant_solution_F = -1*SedRate;
 
 
   // set INITIAL CONDITION within TRANSPORT PROBLEM
   level_set_solver0.initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Wxy,
                                       locally_relevant_solution_F);
 
-  // For the first step, F is just the sedimentation rate
 
-  //locally_relevant_solution_F = -1*SedRate;
 
   //  // TIME STEPPING
   timestep_number = 1;
@@ -1499,8 +1502,8 @@ void LayerMovementProblem<dim>::run()
     //    forge_system_T();
     //    solve_time_step_T();
 
-//    assemble_F();
-//    solve_F();
+    assemble_F();
+    solve_F();
 
     //    if (get_output && time - (output_number)*output_time > 0)
     //      output_results();
