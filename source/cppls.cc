@@ -218,6 +218,12 @@ private:
   std::vector<unsigned int> boundary_values_id_LS;
   std::vector<double> boundary_values_LS;
 
+  std::vector<std::unique_ptr<LevelSetSolver<dim>>> layers;
+  std::vector<std::unique_ptr<LA::MPI::Vector>> layers_solutions;
+
+
+
+
   // Member Functions
 
   // create mesh
@@ -259,6 +265,7 @@ private:
   void solve_F();
 
   double estimate_nl_error();
+  int active_layers_in_time(double time);
 
   void prepare_next_time_step();
 
@@ -331,13 +338,13 @@ void LayerMovementProblem<dim>::setup_dofs()
   dof_handler.distribute_dofs(fe);
   //TODO: put out the sparsity patterns
   //Point<dim> direction (0,-1);
-  locally_owned_dofs = dof_handler.locally_owned_dofs();
+  //locally_owned_dofs = dof_handler.locally_owned_dofs();
 
-  std::vector<types::global_dof_index> starting_indices (dof_handler.n_locally_owned_dofs());
+  //std::vector<types::global_dof_index> starting_indices (dof_handler.n_locally_owned_dofs());
   locally_owned_dofs = dof_handler.locally_owned_dofs();
-  starting_indices=locally_owned_dofs;
+  //starting_indices=locally_owned_dofs;
  // DoFTools::extract_locally_owned_dofs(dof_handler, starting_indices);
-  DoFRenumbering::Cuthill_McKee(dof_handler,false, false, starting_indices );
+  //DoFRenumbering::Cuthill_McKee(dof_handler,false, false, starting_indices );
   //Not working in parallel now
   //DoFRenumbering::downstream(dof_handler, direction, true);
 
@@ -1335,7 +1342,16 @@ void LayerMovementProblem<dim>::output_vectors_LS()
   TimerOutput::Scope t(computing_timer, "output_LS");
   DataOut<dim> data_out;
   data_out.attach_dof_handler(dof_handler_LS);
-  data_out.add_data_vector(locally_relevant_solution_LS_0, "LS");
+  int i=0;
+  for( auto & layer_sol : layers_solutions)
+    {
+      std::string layer_out = "LS"+  Utilities::int_to_string(i, 3);
+      data_out.add_data_vector(*layer_sol, layer_out);
+      ++i;
+    }
+
+
+  //data_out.add_data_vector(locally_relevant_solution_LS_0, "LS");
   Vector<float> subdomain(triangulation.n_active_cells());
   for (unsigned int i = 0; i < subdomain.size(); ++i)
     subdomain(i) = triangulation.locally_owned_subdomain();
@@ -1418,6 +1434,26 @@ void LayerMovementProblem<dim>::output_vectors()
   }
 }
 
+template <int dim>
+int LayerMovementProblem<dim>::active_layers_in_time (double time)
+{
+  if(time <(1/4.0)*final_time )
+    {
+      return 1;
+    }
+  else if(time<(2/4.0)*final_time )
+    {
+      return 2;
+    }
+  else if(time<(3/4.0)*final_time )
+       {
+         return 3;
+       }
+  else
+    {
+      return 4;
+    }
+}
 
 
 template <int dim>
@@ -1453,20 +1489,29 @@ void LayerMovementProblem<dim>::run()
   const bool verbose = true;
   std::string ALGORITHM = "MPP_uH";
   const unsigned int TIME_INTEGRATION = 1; // corresponds to SSP33
-  LevelSetSolver<dim> level_set_solver0(degree_LS, degree, time_step, cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
-                                        triangulation, mpi_communicator);
-
-  // BOUNDARY CONDITIONS FOR PHI
-  get_boundary_values_LS(boundary_values_id_LS, boundary_values_LS);
-  level_set_solver0.set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
 
 
-  // locally_relevant_solution_F = -1*SedRate;
+  const int n_layers=4;
+  int n_active_layers=0;
 
+    //assume locally_relevant_solution_LS_0 is a good initial value for all level sets
 
-  // set INITIAL CONDITION within TRANSPORT PROBLEM
-  level_set_solver0.initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Wxy,
-                                      locally_relevant_solution_F);
+    for(int i=0;i<n_layers;++i)
+      {
+        layers.emplace_back(new LevelSetSolver<dim>(degree_LS, degree, time_step, cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
+                                                 triangulation, mpi_communicator));
+        layers_solutions.emplace_back(new LA::MPI::Vector);
+        layers_solutions[i]->reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
+
+        layers[i]->set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
+        layers[i]->initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Wxy,
+                                             locally_relevant_solution_F);
+      }
+
+    // For the first step, F is just the sedimentation rate
+
+    locally_relevant_solution_F = -0.1*SedRate;
+
 
 
 
@@ -1482,14 +1527,19 @@ void LayerMovementProblem<dim>::run()
 
     // Level set computation
     // original level_set_solver.set_velocity(locally_relevant_solution_u, locally_relevant_solution_v);
-
+    n_active_layers=active_layers_in_time(time);
     {
-      TimerOutput::Scope t(computing_timer, "LS");
+     TimerOutput::Scope t(computing_timer, "LS");
+     for(int i=0;i<n_active_layers;++i)
+       {
+         layers[i]->set_velocity(locally_relevant_solution_Wxy, locally_relevant_solution_F);
+         layers[i]->nth_time_step();
+         layers[i]->get_unp1(locally_relevant_solution_LS_0);
+         (*layers_solutions[i])=locally_relevant_solution_LS_0;
 
-      level_set_solver0.set_velocity(locally_relevant_solution_Wxy, locally_relevant_solution_F);
-      level_set_solver0.nth_time_step();
-      level_set_solver0.get_unp1(locally_relevant_solution_LS_0); // exposes interface vector
-    }
+       }
+   }
+
     output_vectors();
     // set material ids based on locally_relevant_solution_LS
     setup_material_configuration(); // TODO: move away from cell id to values at quad points
