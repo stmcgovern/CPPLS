@@ -330,7 +330,14 @@ void LayerMovementProblem<dim>::setup_dofs()
 
   dof_handler.distribute_dofs(fe);
   //TODO: put out the sparsity patterns
-  Point<dim> direction (0,-1);
+  //Point<dim> direction (0,-1);
+  locally_owned_dofs = dof_handler.locally_owned_dofs();
+
+  std::vector<types::global_dof_index> starting_indices (dof_handler.n_locally_owned_dofs());
+  locally_owned_dofs = dof_handler.locally_owned_dofs();
+  starting_indices=locally_owned_dofs;
+ // DoFTools::extract_locally_owned_dofs(dof_handler, starting_indices);
+  DoFRenumbering::Cuthill_McKee(dof_handler,false, false, starting_indices );
   //Not working in parallel now
   //DoFRenumbering::downstream(dof_handler, direction, true);
 
@@ -341,7 +348,7 @@ void LayerMovementProblem<dim>::setup_dofs()
         << "Number of degrees of freedom: " << dof_handler.n_dofs() << std::endl
         << std::endl;
 
-  locally_owned_dofs = dof_handler.locally_owned_dofs();
+
   DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
 }
 
