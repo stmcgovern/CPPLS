@@ -162,7 +162,7 @@ double Initial_LS<dim>::value(const Point<dim>& p, const unsigned int) const
       double y = p[1];
       // std::cout<<std::tanh((y- 0.9)/sharpness)<<" "<<std::endl;
 
-      return_value = std::tanh((y - (box_size_z - (box_size_z / 100))) / sharpness);
+      return_value = 0.5*(1+ std::tanh((y - (box_size_z - (box_size_z / 100))) / sharpness));
       Assert (return_value <= 1 ,ExcInternalError());
       Assert (return_value >= -1 ,ExcInternalError());
       return return_value;

@@ -1441,8 +1441,8 @@ void LayerMovementProblem<dim>::run()
   time_step = cfl * min_h / umax;
   // pcout<<"min_h"<<min_h;
 
-  const double cK = 1.0;
-  const double cE = 1.0;
+  const double cK = 1.0;//compression coeff
+  const double cE = 1.0;//entropy-visc coeff (non-dimensional cf. p 452 (around eq 18) Guermond, 2017)
   const bool verbose = true;
   std::string ALGORITHM = "MPP_uH";
   const unsigned int TIME_INTEGRATION = 1; // corresponds to SSP33
