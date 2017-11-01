@@ -220,6 +220,7 @@ private:
 
   std::vector<std::unique_ptr<LevelSetSolver<dim>>> layers;
   std::vector<std::unique_ptr<LA::MPI::Vector>> layers_solutions;
+  int n_layers;
 
 
 
@@ -945,6 +946,7 @@ void LayerMovementProblem<dim>::solve_F()
 template <int dim>
 void LayerMovementProblem<dim>::setup_material_configuration()
 {
+  //TODO
   TimerOutput::Scope t(computing_timer, "set_material_configuration");
   // This function sets material ids of cells based on the location of the interface, i.e. loc_rel_solution_LS
 
@@ -957,7 +959,9 @@ void LayerMovementProblem<dim>::setup_material_configuration()
 
   //  std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
-  std::vector<double> LS0_at_quad(n_q_points);
+
+  //TODO: a better structure than vec(vec))
+  std::vector<std::vector<double>> LS_at_quad (n_layers, std::vector<double>(n_q_points));
 
   // std::vector<double> bulkdensity_at_quad(n_q_points);
   // double eps= GridTools::minimal_cell_diameter(triangulation)/std::sqrt(2);
@@ -973,28 +977,36 @@ void LayerMovementProblem<dim>::setup_material_configuration()
   //          diff_coeff=1000*(1+H)/2.+10*(1-H)/2.;
 
   // std::vector<double> id_sum(5);
-  double id_sum0{0};
+  std::vector<double> id_sum(n_layers, 0);
 
   for (auto cell : filter_iterators(dof_handler_LS.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
-    id_sum0 = 0;
+
 
     fe_values.reinit(cell);
-    fe_values.get_function_values(locally_relevant_solution_LS_0, LS0_at_quad);
-
-
-    for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-//         output_vectors_LS();
-//         abort();
-        Assert(LS0_at_quad[q_point] < 1.5, ExcInternalError());
-        Assert(-1.5 < LS0_at_quad[q_point], ExcInternalError());
-        id_sum0 += LS0_at_quad[q_point];
-    }
-    if (id_sum0 <= 0) {
-      cell->set_material_id(0);
-    }
-    else
+    int i=0;//for n_layers
+    for(auto & layer_sol : layers_solutions)
       {
-        cell->set_material_id(1);
+          fe_values.get_function_values( *layer_sol, LS_at_quad[i]);
+
+          for (unsigned int q_point = 0; q_point < n_q_points; ++q_point)
+            {
+  //         output_vectors_LS();
+  //         abort();
+              Assert(LS_at_quad[i][q_point] < 1.5, ExcInternalError());
+              Assert(-1.5 < LS_at_quad[i][q_point], ExcInternalError());
+              //do the y=2x-1 switch so the -/+ still works
+              id_sum[i] += 2*LS_at_quad[i][q_point]-1;
+            }
+          ++i;
+          //TODO this is not quite right. needs to use 0 level set (not 0.5 one
+      }
+    for (i=0;i<n_layers;++i)
+      {
+        if(id_sum[i]<0)
+          {
+            cell->set_material_id(i);
+            break;
+          }
       }
   } // end cell loop
 }
@@ -1059,6 +1071,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
                                   compaction_coefficient, hydrostatic);
       Assert(0 < phi, ExcInternalError());
       Assert(phi < 1, ExcInternalError());
+      Assert(0< (overburden_at_quad[q_point]-pressure_at_quad[q_point]-hydrostatic), ExcInternalError());
 
       const double perm_k = permeability(phi, initial_permeability, initial_porosity);
       // pcout<<"perm_k"<<perm_k<<"init<<"<< initial_permeability<<std::endl;
@@ -1491,7 +1504,7 @@ void LayerMovementProblem<dim>::run()
   const unsigned int TIME_INTEGRATION = 1; // corresponds to SSP33
 
 
-  const int n_layers=4;
+ n_layers=6;
   int n_active_layers=0;
 
     //assume locally_relevant_solution_LS_0 is a good initial value for all level sets

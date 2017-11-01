@@ -9,7 +9,7 @@ subsection Physical Parameters
 end
 
 subsection Finite Element
-  set initial_refinement_level = 4
+  set initial_refinement_level = 7
   set max_refinement_level = 4
   set fe_order = 2
 end
