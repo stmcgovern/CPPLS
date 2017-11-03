@@ -115,8 +115,8 @@ class LevelSetSolver
         const unsigned int TIME_INTEGRATION,
         parallel::distributed::Triangulation<dim> &triangulation,
         MPI_Comm &mpi_communicator,
-        DoFHandler<dim>& dof_handler_U,
-        DoFHandler<dim>& dof_handler_LS);
+        const DoFHandler<dim>& dof_handler_U,
+        const DoFHandler<dim>& dof_handler_LS);
     ~LevelSetSolver();
     
   private:
@@ -189,13 +189,13 @@ class LevelSetSolver
     //FINITE ELEMENT SPACE
     int                  degree_MAX;
     int                  degree_LS;
-    DoFHandler<dim>      dof_handler_LS;
+    const DoFHandler<dim>      &dof_handler_LS;
     FE_Q<dim>            fe_LS;
     IndexSet             locally_owned_dofs_LS;
     IndexSet             locally_relevant_dofs_LS;
 
     int                  degree_U;
-    DoFHandler<dim>      dof_handler_U;
+    const DoFHandler<dim>      &dof_handler_U;
     FE_Q<dim>            fe_U;
     IndexSet             locally_owned_dofs_U;
     IndexSet             locally_relevant_dofs_U;
@@ -283,8 +283,8 @@ LevelSetSolver<dim>::LevelSetSolver (const unsigned int degree_LS,
 				     const unsigned int TIME_INTEGRATION,
 				     parallel::distributed::Triangulation<dim> &triangulation, 
              MPI_Comm &mpi_communicator,
-             DoFHandler<dim> &dof_handler_U,
-             DoFHandler<dim> &dof_handler_LS)
+             const DoFHandler<dim> &dof_handler_U,
+             const DoFHandler<dim> &dof_handler_LS)
   :
   mpi_communicator (mpi_communicator),
   degree_LS(degree_LS),
@@ -433,11 +433,11 @@ void LevelSetSolver<dim>::setup()
   // setup system LS
   //dof_handler_LS.distribute_dofs (fe_LS);
   locally_owned_dofs_LS = dof_handler_LS.locally_owned_dofs ();
- // DoFTools::extract_locally_relevant_dofs (dof_handler_LS,locally_relevant_dofs_LS);
+  DoFTools::extract_locally_relevant_dofs (dof_handler_LS,locally_relevant_dofs_LS);
   // setup system U 
   //dof_handler_U.distribute_dofs (fe_U);
   locally_owned_dofs_U = dof_handler_U.locally_owned_dofs ();
- // DoFTools::extract_locally_relevant_dofs (dof_handler_U,locally_relevant_dofs_U);
+  DoFTools::extract_locally_relevant_dofs (dof_handler_U,locally_relevant_dofs_U);
   //////////////////////
   // INIT CONSTRAINTS //
   //////////////////////
