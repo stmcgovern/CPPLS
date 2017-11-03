@@ -337,15 +337,77 @@ void LayerMovementProblem<dim>::setup_dofs()
 
 
   dof_handler.distribute_dofs(fe);
+  locally_owned_dofs = dof_handler.locally_owned_dofs();
+  DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
   //TODO: put out the sparsity patterns
   //Point<dim> direction (0,-1);
   //locally_owned_dofs = dof_handler.locally_owned_dofs();
 
-  //std::vector<types::global_dof_index> starting_indices (dof_handler.n_locally_owned_dofs());
-  locally_owned_dofs = dof_handler.locally_owned_dofs();
+  std::vector<types::global_dof_index> starting_indices;
+  starting_indices.clear();
+
+  std::cout<<dof_handler.n_locally_owned_dofs();
+
+
+  //re-check this algorithm for AMR case
+  //how to get face normals without FEFaceValues TODO
+  const QGauss<dim - 1> face_quadrature_formula(degree + 1);
+  FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
+                                   update_values | update_quadrature_points | update_normal_vectors |
+                                       update_JxW_values);
+
+  Tensor<1, dim> u;
+  Point<dim> down{0,-1};
+  std::vector< types::global_dof_index >dof_indices (fe.n_dofs_per_face(), 0);
+
+
+  for (const auto &cell: dof_handler.active_cell_iterators())
+    {
+    if(cell->is_locally_owned())
+      {
+
+      for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face)
+        {
+          if ((cell->face(face)->at_boundary()) || (cell->neighbor(face)->is_ghost()))
+            {
+              fe_face_values.reinit(cell, face);
+              u=fe_face_values.normal_vector(1); //for Q_2 this is in middle of face, dim=2
+              if(u*down< 0)
+                {
+                cell->face(face)->get_dof_indices(dof_indices);
+                starting_indices.insert(std::end(starting_indices),
+                                        std::begin(dof_indices), std::end(dof_indices));
+               }
+            }
+        }
+      }
+   }
+
+  for(int i=0;i<starting_indices.size();i++)
+    {
+      std::cout<<" "<<starting_indices[i]<<" ";
+
+    }
+
+//  //remove duplicates by creating a set
+ std::set<types::global_dof_index> no_duplicates_please (starting_indices.begin(),
+                                                          starting_indices.end());
+//  //back to vector for the DoFRenumbering function
+//  starting_indices.clear();
+starting_indices.assign(no_duplicates_please.begin(), no_duplicates_please.end());
+//  starting_indices.insert(std::end(starting_indices),
+//                                 std::begin(no_duplicates_please), std::end(no_duplicates_please));
+
+std::cout<<std::endl;
+     for(int i=0;i<starting_indices.size();i++)
+       {
+         std::cout<<" "<<starting_indices[i]<<" ";
+
+       }
+     std::cout<<std::endl;
   //starting_indices=locally_owned_dofs;
  // DoFTools::extract_locally_owned_dofs(dof_handler, starting_indices);
-  //DoFRenumbering::Cuthill_McKee(dof_handler,false, false, starting_indices );
+// DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
   //Not working in parallel now
   //DoFRenumbering::downstream(dof_handler, direction, true);
 
@@ -356,8 +418,8 @@ void LayerMovementProblem<dim>::setup_dofs()
         << "Number of degrees of freedom: " << dof_handler.n_dofs() << std::endl
         << std::endl;
 
-
-  DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
+//  locally_owned_dofs = dof_handler.locally_owned_dofs();
+//  DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
 }
 
 template <int dim>
@@ -998,7 +1060,8 @@ void LayerMovementProblem<dim>::setup_material_configuration()
               id_sum[i] += 2*LS_at_quad[i][q_point]-1;
             }
           ++i;
-          //TODO this is not quite right. needs to use 0 level set (not 0.5 one
+          //TODO representation of interface (0 level set or 0.5, etc.) needs to be taken
+          //into account in this averaging, as above for 0.5
       }
     for (i=0;i<n_layers;++i)
       {
@@ -1071,7 +1134,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
                                   compaction_coefficient, hydrostatic);
       Assert(0 < phi, ExcInternalError());
       Assert(phi < 1, ExcInternalError());
-      Assert(0< (overburden_at_quad[q_point]-pressure_at_quad[q_point]-hydrostatic), ExcInternalError());
+      //Assert(0< (overburden_at_quad[q_point]-pressure_at_quad[q_point]-hydrostatic), ExcInternalError());
 
       const double perm_k = permeability(phi, initial_permeability, initial_porosity);
       // pcout<<"perm_k"<<perm_k<<"init<<"<< initial_permeability<<std::endl;
