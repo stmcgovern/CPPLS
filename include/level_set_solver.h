@@ -106,15 +106,17 @@ class LevelSetSolver
     void setup();
 
     LevelSetSolver (const unsigned int degree_LS,
-		    const unsigned int degree_U,
-		    const double time_step,
-		    const double cK,
-		    const double cE,
-		    const bool verbose,
-		    std::string ALGORITHM,
-		    const unsigned int TIME_INTEGRATION,
-		    parallel::distributed::Triangulation<dim> &triangulation,
-        MPI_Comm &mpi_communicator);
+        const unsigned int degree_U,
+        const double time_step,
+        const double cK,
+        const double cE,
+        const bool verbose,
+        std::string ALGORITHM,
+        const unsigned int TIME_INTEGRATION,
+        parallel::distributed::Triangulation<dim> &triangulation,
+        MPI_Comm &mpi_communicator,
+        DoFHandler<dim>& dof_handler_U,
+        DoFHandler<dim>& dof_handler_LS);
     ~LevelSetSolver();
     
   private:
@@ -280,14 +282,16 @@ LevelSetSolver<dim>::LevelSetSolver (const unsigned int degree_LS,
 				     std::string ALGORITHM,
 				     const unsigned int TIME_INTEGRATION,
 				     parallel::distributed::Triangulation<dim> &triangulation, 
-             MPI_Comm &mpi_communicator)
+             MPI_Comm &mpi_communicator,
+             DoFHandler<dim> &dof_handler_U,
+             DoFHandler<dim> &dof_handler_LS)
   :
   mpi_communicator (mpi_communicator),
   degree_LS(degree_LS),
-  dof_handler_LS (triangulation),
+  dof_handler_LS (dof_handler_LS),
   fe_LS (degree_LS),
   degree_U(degree_U),
-  dof_handler_U (triangulation),
+  dof_handler_U (dof_handler_U),
   fe_U (degree_U),
   time_step(time_step),
   cE(cE),
@@ -304,8 +308,8 @@ LevelSetSolver<dim>::LevelSetSolver (const unsigned int degree_LS,
 template <int dim>
 LevelSetSolver<dim>::~LevelSetSolver ()
 {
-  dof_handler_LS.clear ();
-  dof_handler_U.clear ();
+//  dof_handler_LS.clear ();
+//  dof_handler_U.clear ();
 }
 
 ///////////////////////////////////////////////////////////
@@ -427,13 +431,13 @@ void LevelSetSolver<dim>::setup()
   // SETUP FOR DOF HANDLERS //
   ////////////////////////////  
   // setup system LS
-  dof_handler_LS.distribute_dofs (fe_LS);
+  //dof_handler_LS.distribute_dofs (fe_LS);
   locally_owned_dofs_LS = dof_handler_LS.locally_owned_dofs ();
-  DoFTools::extract_locally_relevant_dofs (dof_handler_LS,locally_relevant_dofs_LS);
+ // DoFTools::extract_locally_relevant_dofs (dof_handler_LS,locally_relevant_dofs_LS);
   // setup system U 
-  dof_handler_U.distribute_dofs (fe_U);
+  //dof_handler_U.distribute_dofs (fe_U);
   locally_owned_dofs_U = dof_handler_U.locally_owned_dofs ();
-  DoFTools::extract_locally_relevant_dofs (dof_handler_U,locally_relevant_dofs_U);
+ // DoFTools::extract_locally_relevant_dofs (dof_handler_U,locally_relevant_dofs_U);
   //////////////////////
   // INIT CONSTRAINTS //
   //////////////////////

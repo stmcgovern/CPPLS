@@ -1574,8 +1574,10 @@ void LayerMovementProblem<dim>::run()
 
     for(int i=0;i<n_layers;++i)
       {
-        layers.emplace_back(new LevelSetSolver<dim>(degree_LS, degree, time_step, cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
-                                                 triangulation, mpi_communicator));
+        layers.emplace_back(new LevelSetSolver<dim>(degree_LS, degree, time_step,
+                                                   cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
+                                                 triangulation, mpi_communicator,
+                                                 dof_handler, dof_handler_LS));
         layers_solutions.emplace_back(new LA::MPI::Vector);
         layers_solutions[i]->reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
 
