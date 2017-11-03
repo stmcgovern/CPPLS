@@ -383,12 +383,6 @@ void LayerMovementProblem<dim>::setup_dofs()
       }
    }
 
-  for(int i=0;i<starting_indices.size();i++)
-    {
-      std::cout<<" "<<starting_indices[i]<<" ";
-
-    }
-
 //  //remove duplicates by creating a set
  std::set<types::global_dof_index> no_duplicates_please (starting_indices.begin(),
                                                           starting_indices.end());
@@ -398,13 +392,6 @@ starting_indices.assign(no_duplicates_please.begin(), no_duplicates_please.end()
 //  starting_indices.insert(std::end(starting_indices),
 //                                 std::begin(no_duplicates_please), std::end(no_duplicates_please));
 
-std::cout<<std::endl;
-     for(int i=0;i<starting_indices.size();i++)
-       {
-         std::cout<<" "<<starting_indices[i]<<" ";
-
-       }
-     std::cout<<std::endl;
   //starting_indices=locally_owned_dofs;
  // DoFTools::extract_locally_owned_dofs(dof_handler, starting_indices);
 // DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
@@ -1577,7 +1564,7 @@ void LayerMovementProblem<dim>::run()
         layers.emplace_back(new LevelSetSolver<dim>(degree_LS, degree, time_step,
                                                    cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
                                                  triangulation, mpi_communicator,
-                                                 dof_handler, dof_handler_LS));
+                                                    dof_handler, dof_handler_LS));
         layers_solutions.emplace_back(new LA::MPI::Vector);
         layers_solutions[i]->reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
 
