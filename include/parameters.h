@@ -13,11 +13,11 @@
 // around very easily.
 namespace CPPLS
 {
-  using namespace dealii;
+using namespace dealii;
 
-  class Parameters
-  {
-  public:
+class Parameters
+{
+public:
     double box_size;
     double theta;
 
@@ -37,8 +37,8 @@ namespace CPPLS
     unsigned int patch_level;
 
     void read_parameter_file(const std::string &file_name);
-  private:
+private:
     void configure_parameter_handler(ParameterHandler &parameter_handler);
-  };
+};
 }
 #endif
