@@ -10,7 +10,7 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
     parameter_handler.enter_subsection("Geometry");
     {
       parameter_handler.declare_entry
-      ("dimenson", "2",Patterns::Integer(2,3), "dimension of problem" );
+      ("dimension", "2",Patterns::Integer(2,3), "dimension of problem" );
       parameter_handler.declare_entry
       ("base_sedimentation_rate", "3.147e-11", Patterns::Double(0, 1), "base sedimentation rate");
       parameter_handler.declare_entry
@@ -22,7 +22,7 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
     parameter_handler.enter_subsection("Layer Parameters");
     {
         parameter_handler.declare_entry
-        ("n_layers", "1.0", Patterns::Integer (0,100), "Number of sediment layers");
+        ("n_layers", "1", Patterns::Integer (0,100), "Number of sediment layers");
         //parameter_handler.declare_entry
         //("layer_order", "1.0", Patterns::List() , "Sequence of rock types");
         parameter_handler.declare_entry
@@ -31,19 +31,6 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
     }
     parameter_handler.leave_subsection();
 
-
-
-    parameter_handler.enter_subsection("Physical Parameters");
-    {
-        parameter_handler.declare_entry
-        ("diffusion_coefficient", "1.0", Patterns::Double(0.0), "Diffusion coefficient.");
-        parameter_handler.declare_entry
-        ("reaction_coefficient", "1.0", Patterns::Double(0.0), "Reaction coefficient.");
-        parameter_handler.declare_entry
-        ("time_dependent_forcing", "true", Patterns::Bool(), "Whether or not "
-         "the forcing function depends on time.");
-    }
-    parameter_handler.leave_subsection();
 
     parameter_handler.enter_subsection("Finite Element");
     {
@@ -98,7 +85,6 @@ void Parameters::read_parameter_file(const std::string &file_name)
     parameter_handler.enter_subsection("Geometry");
     {
       dimension = parameter_handler.get_integer("dimension");
-
       box_size = parameter_handler.get_double("box_size");
       base_sedimentation_rate = parameter_handler.get_double("base_sedimentation_rate");
     }
@@ -107,7 +93,7 @@ void Parameters::read_parameter_file(const std::string &file_name)
     parameter_handler.enter_subsection("Layer Parameters");
     {
         n_layers = parameter_handler.get_double("n_layers");
-        reaction_coefficient = parameter_handler.get_double("reaction_coefficient");
+
         time_dependent_forcing = parameter_handler.get_bool("time_dependent_forcing");
     }
     parameter_handler.leave_subsection();
