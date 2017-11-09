@@ -81,38 +81,38 @@ public:
 
 private:
 
-  // Member Data
-  // runtime parameters
-  const CPPLS::Parameters parameters;
-  const CPPLS::MaterialData material_data;
+    // Member Data
+    // runtime parameters
+    const CPPLS::Parameters parameters;
+    const CPPLS::MaterialData material_data;
 
-  // mpi communication
-  MPI_Comm mpi_communicator;
-  const unsigned int n_mpi_processes;
-  const unsigned int this_mpi_process;
+    // mpi communication
+    MPI_Comm mpi_communicator;
+    const unsigned int n_mpi_processes;
+    const unsigned int this_mpi_process;
 
-  // mesh
-  parallel::distributed::Triangulation<dim> triangulation;
+    // mesh
+    parallel::distributed::Triangulation<dim> triangulation;
 
-  // FE basis space (for P,T, F, and sigma)
-  // LS separate
+    // FE basis space (for P,T, F, and sigma)
+    // LS separate
 
-  // pressure
-  int degree;
-  DoFHandler<dim> dof_handler;
-  FE_Q<dim> fe;
-  IndexSet locally_owned_dofs;
-  IndexSet locally_relevant_dofs;
+    // pressure
+    int degree;
+    DoFHandler<dim> dof_handler;
+    FE_Q<dim> fe;
+    IndexSet locally_owned_dofs;
+    IndexSet locally_relevant_dofs;
 
 
-  int degree_LS;
-  DoFHandler<dim> dof_handler_LS;
-  FE_Q<dim> fe_LS;
-  IndexSet locally_owned_dofs_LS;
-  IndexSet locally_relevant_dofs_LS;
+    int degree_LS;
+    DoFHandler<dim> dof_handler_LS;
+    FE_Q<dim> fe_LS;
+    IndexSet locally_owned_dofs_LS;
+    IndexSet locally_relevant_dofs_LS;
 
-  // output stream where only mpi rank 0 output gets to stdout
-  ConditionalOStream pcout;
+    // output stream where only mpi rank 0 output gets to stdout
+    ConditionalOStream pcout;
 
     TimerOutput computing_timer;
 
@@ -261,29 +261,29 @@ private:
 
 template <int dim>
 LayerMovementProblem<dim>::LayerMovementProblem(const CPPLS::Parameters& parameters,
-                                                const CPPLS::MaterialData& material_data)
-  : parameters(parameters)
-  , material_data(material_data)
-  , mpi_communicator(MPI_COMM_WORLD)
-  , n_mpi_processes{Utilities::MPI::n_mpi_processes(mpi_communicator)}
-  , this_mpi_process{Utilities::MPI::this_mpi_process(mpi_communicator)}
-  , triangulation(mpi_communicator,
-                  typename Triangulation<dim>::MeshSmoothing(Triangulation<dim>::smoothing_on_refinement |
-                                                             Triangulation<dim>::smoothing_on_coarsening))
-  , degree(parameters.degree)
-  , degree_LS(parameters.degree_LS)
-  , fe(degree)
-  , fe_LS(degree_LS)
-  , dof_handler(triangulation)
-  , dof_handler_LS(triangulation)
-  , pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator) == 0))
-  , computing_timer(mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times)
-  , time_step((parameters.stop_time - parameters.start_time) / parameters.n_time_steps)
-  , current_time{parameters.start_time}
-  , final_time{parameters.stop_time}
-  , output_number{0}
-  , theta(parameters.theta)
-        {};
+        const CPPLS::MaterialData& material_data)
+    : parameters(parameters)
+    , material_data(material_data)
+    , mpi_communicator(MPI_COMM_WORLD)
+    , n_mpi_processes {Utilities::MPI::n_mpi_processes(mpi_communicator)}
+, this_mpi_process {Utilities::MPI::this_mpi_process(mpi_communicator)}
+, triangulation(mpi_communicator,
+                typename Triangulation<dim>::MeshSmoothing(Triangulation<dim>::smoothing_on_refinement |
+                        Triangulation<dim>::smoothing_on_coarsening))
+, degree(parameters.degree)
+, degree_LS(parameters.degree_LS)
+, fe(degree)
+, fe_LS(degree_LS)
+, dof_handler(triangulation)
+, dof_handler_LS(triangulation)
+, pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator) == 0))
+, computing_timer(mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times)
+, time_step((parameters.stop_time - parameters.start_time) / parameters.n_time_steps)
+, current_time {parameters.start_time}
+, final_time {parameters.stop_time}
+, output_number {0}
+, theta(parameters.theta)
+{};
 
 // Destructor
 template <int dim>
@@ -1561,7 +1561,7 @@ void LayerMovementProblem<dim>::run()
         layers[i]->set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
         layers[i]->initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Wxy,
                                      locally_relevant_solution_F);
-     }
+    }
 
 
 
