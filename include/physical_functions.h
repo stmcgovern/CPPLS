@@ -223,6 +223,54 @@ public:
     }
 };
 
+
+template <int dim>
+class ComputePorosity : public DataPostprocessorScalar<dim>
+{
+public:
+  ComputePorosity ();
+  virtual
+  void
+
+  evaluate_scalar_field
+  (const DataPostprocessorInputs::Vector<dim> &inputs,
+   std::vector<Vector<double> >               &computed_quantities) const override;
+};
+template <int dim>
+ComputePorosity<dim>::ComputePorosity ()
+  :
+  DataPostprocessorScalar<dim> ("Porosity",
+                                update_values)
+{}
+template <int dim>
+void
+ComputePorosity<dim>::evaluate_scalar_field
+(const DataPostprocessorInputs::Vector<dim> &inputs,
+ std::vector<Vector<double> >               &computed_quantities) const
+{
+  Assert(computed_quantities.size() == inputs.solution_values.size(),
+         ExcDimensionMismatch (computed_quantities.size(), inputs.solution_values.size()));
+  for (unsigned int i=0; i<computed_quantities.size(); i++)
+    {
+      Assert(computed_quantities[i].size() == 1,
+             ExcDimensionMismatch (computed_quantities[i].size(), 1));
+      Assert(inputs.solution_values[i].size() == 2,
+             ExcDimensionMismatch (inputs.solution_values[i].size(), 2));
+      computed_quantities[i](0)
+        = std::sqrt(inputs.solution_values[i](0)*inputs.solution_values[i](0)
+                    + inputs.solution_values[i](1)*inputs.solution_values[i](1));
+    }
+}
+
+
+
+
+
+
+
+
+
+
 /////////////////////////////////////////////////////
 //////////////////// BOUNDARY PHI ///////////////////
 /////////////////////////////////////////////////////

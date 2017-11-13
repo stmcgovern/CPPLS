@@ -1442,16 +1442,16 @@ void LayerMovementProblem<dim>::output_vectors()
 //  data_out.add_data_vector(rhs_F, "rhs_F" );
 //  data_out.add_data_vector(rhs_Sigma, "rhs_s");
 
-    //  LA::MPI::Vector material_kind;
-    //  material_kind.reinit(locally_owned_dofs, mpi_communicator);
-    //  material_kind = 0;
+      LA::MPI::Vector material_kind;
+      material_kind.reinit(locally_owned_dofs, mpi_communicator);
+      material_kind = 0;
 
-    //  int i = 0;
-    //  for (auto cell : filter_iterators(triangulation.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
-    //    material_kind(i) = static_cast<float>(cell->material_id());
-    //    ++i;
-    //  }
-    //  data_out.add_data_vector(material_kind, "material_kind");
+      int i = 0;
+      for (auto const &cell : filter_iterators(triangulation.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
+        material_kind(i) = static_cast<int>(cell->material_id());
+        ++i;
+      }
+      data_out.add_data_vector(material_kind, "material_kind");
 
     Vector<float> subdomain(triangulation.n_active_cells());
     for (unsigned int i = 0; i < subdomain.size(); ++i)
