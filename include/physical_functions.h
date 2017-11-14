@@ -212,17 +212,6 @@ double Initial_LS<dim>::value(const Point<dim>& p, const unsigned int) const
     ////    }
 }
 
-///////////////////////////////////////////////////////
-//////////////////// FORCE TERMS ///// ////////////////
-///////////////////////////////////////////////////////
-template <int dim>
-class ForceTerms : public ConstantFunction<dim> {
-public:
-    ForceTerms(const std::vector<double> values)
-        : ConstantFunction<dim>(values)
-    {
-    }
-};
 
 
 template <int dim>

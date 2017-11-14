@@ -1007,6 +1007,7 @@ void LayerMovementProblem<dim>::setup_material_configuration()
 
     for (auto cell : filter_iterators(dof_handler_LS.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
 
+        std::fill(id_sum.begin(), id_sum.end(), 0);
 
         fe_values.reinit(cell);
         int i=0;//for n_layers
@@ -1029,12 +1030,14 @@ void LayerMovementProblem<dim>::setup_material_configuration()
         }
         for (i=0; i<n_layers; ++i)
         {
+
             if(id_sum[i]<0)
             {
                 cell->set_material_id(i);
                 break;
             }
         }
+
     } // end cell loop
 }
 
@@ -1393,7 +1396,21 @@ void LayerMovementProblem<dim>::output_vectors_LS()
         data_out.add_data_vector(*layer_sol, layer_out);
         ++i;
     }
+    LA::MPI::Vector ng_material_kind;
+    ng_material_kind.reinit(locally_owned_dofs,  mpi_communicator);
+    LA::MPI::Vector g_material_kind;
+    g_material_kind.reinit(locally_owned_dofs,locally_relevant_dofs,  mpi_communicator);
 
+    //std::vector<unsigned int> material_kind(triangulation.n_active_cells());
+     i = 0;
+    for (auto cell : filter_iterators(triangulation.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
+    ng_material_kind[i]=cell->material_id();
+      ++i;
+    }
+    ng_material_kind.compress(VectorOperation::insert);
+    g_material_kind=ng_material_kind;
+
+    data_out.add_data_vector(g_material_kind, "material_kind");
 
     //data_out.add_data_vector(locally_relevant_solution_LS_0, "LS");
     Vector<float> subdomain(triangulation.n_active_cells());
@@ -1419,7 +1436,7 @@ void LayerMovementProblem<dim>::output_vectors_LS()
     }
 }
 
-// TODO output material id
+
 
 template <int dim>
 void LayerMovementProblem<dim>::output_vectors()
@@ -1444,16 +1461,12 @@ void LayerMovementProblem<dim>::output_vectors()
 //  data_out.add_data_vector(rhs_F, "rhs_F" );
 //  data_out.add_data_vector(rhs_Sigma, "rhs_s");
 
-      LA::MPI::Vector material_kind;
-      material_kind.reinit(locally_owned_dofs, mpi_communicator);
-      material_kind = 0;
 
-      int i = 0;
-      for (auto const &cell : filter_iterators(triangulation.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
-        material_kind(i) = static_cast<int>(cell->material_id());
-        ++i;
-      }
-      data_out.add_data_vector(material_kind, "material_kind");
+
+//      Vector<float> material_id(triangulation.n_active_cells());
+//      for (unsigned int i = 0; i < material_id.size(); ++i)
+//          material_id(i) = cell->material_id();
+//      data_out.add_data_vector(material_id, "material_id");
 
     Vector<float> subdomain(triangulation.n_active_cells());
     for (unsigned int i = 0; i < subdomain.size(); ++i)
@@ -1492,22 +1505,6 @@ int LayerMovementProblem<dim>::active_layers_in_time (double time)
 
     }
 
-//    if(time <(1/4.0)*final_time )
-//    {
-//        return 1;
-//    }
-//    else if(time<(2/4.0)*final_time )
-//    {
-//        return 2;
-//    }
-//    else if(time<(3/4.0)*final_time )
-//    {
-//        return 3;
-//    }
-//    else
-//    {
-//        return 4;
-//    }
 }
 
 
