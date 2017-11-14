@@ -1481,9 +1481,11 @@ void LayerMovementProblem<dim>::output_vectors()
 template <int dim>
 int LayerMovementProblem<dim>::active_layers_in_time (double time)
 {
+  //equitemporal division over layers
   for (int i=0;i<n_layers;i++)
     {
-      if(time<(double(i)/double(n_layers))*final_time)
+      double current_fraction= static_cast<double>(i)/(n_layers);
+      if(time<(current_fraction*final_time))
         {
           return i; break;
         }
@@ -1512,6 +1514,7 @@ int LayerMovementProblem<dim>::active_layers_in_time (double time)
 template <int dim>
 void LayerMovementProblem<dim>::run()
 {
+  constexpr double seconds_in_Myear{60*60*24*365.25*1e6};
 
     // common mesh
     setup_geometry();
@@ -1579,7 +1582,7 @@ void LayerMovementProblem<dim>::run()
     // TIME STEPPING
     timestep_number = 1;
     for (double time = time_step; time <= final_time; time += time_step, ++timestep_number) {
-        pcout << "Time step " << timestep_number << " at t=" << time << std::endl;
+        pcout << "Time step " << timestep_number << " at t=" << time <<"s: "<<time/seconds_in_Myear<<"Ma"<< std::endl;
         pcout<< " % complete:"<<100*(timestep_number*time_step)/final_time<<std::endl; //for constant time_step
         Assert (time_step< final_time, ExcNotImplemented());
         // Solve for F the scalar speed function which is passed to the LevelSetSolver

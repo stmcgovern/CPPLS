@@ -35,8 +35,8 @@ subsection Time Step
 #start time of simulation (s)
   set start_time = 0.0
 
-#end time of simulation (s)  - note: 3.147e15 s = 1 Ma
-  set stop_time = 3.147e15
+#end time of simulation (s)  - note: 3.147e13 s = 1 Ma
+  set stop_time = 3.147e13
 #not used
   set n_time_steps = 200
 # for theta scheme for time stepping in P and T,
