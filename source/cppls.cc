@@ -1481,22 +1481,31 @@ void LayerMovementProblem<dim>::output_vectors()
 template <int dim>
 int LayerMovementProblem<dim>::active_layers_in_time (double time)
 {
-    if(time <(1/4.0)*final_time )
+  for (int i=0;i<n_layers;i++)
     {
-        return 1;
+      if(time<(double(i)/double(n_layers))*final_time)
+        {
+          return i; break;
+        }
+
     }
-    else if(time<(2/4.0)*final_time )
-    {
-        return 2;
-    }
-    else if(time<(3/4.0)*final_time )
-    {
-        return 3;
-    }
-    else
-    {
-        return 4;
-    }
+
+//    if(time <(1/4.0)*final_time )
+//    {
+//        return 1;
+//    }
+//    else if(time<(2/4.0)*final_time )
+//    {
+//        return 2;
+//    }
+//    else if(time<(3/4.0)*final_time )
+//    {
+//        return 3;
+//    }
+//    else
+//    {
+//        return 4;
+//    }
 }
 
 

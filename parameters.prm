@@ -10,7 +10,7 @@ end
 
 subsection Layer Parameters
 #number of sedimentary layers, not including basement
-  set n_layers = 1
+  set n_layers = 10
 
 # a sequence of rock_types to be added
 # length of array must be = n_layers
