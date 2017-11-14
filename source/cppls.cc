@@ -328,7 +328,7 @@ void LayerMovementProblem<dim>::setup_dofs()
 
     //re-check this algorithm for AMR case
     //how to get face normals without FEFaceValues TODO
-    const QGauss<dim - 1> face_quadrature_formula(degree + 1);
+    const QMidpoint<dim - 1> face_quadrature_formula;
     FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
                                      update_values | update_quadrature_points | update_normal_vectors |
                                      update_JxW_values);
@@ -348,7 +348,7 @@ void LayerMovementProblem<dim>::setup_dofs()
                 if ((cell->face(face)->at_boundary()) || (cell->neighbor(face)->is_ghost()))
                 {
                     fe_face_values.reinit(cell, face);
-                    u=fe_face_values.normal_vector(1); //for Q_2 this is in middle of face, dim=2
+                    u=fe_face_values.normal_vector(0);
                     if(u*down< 0)
                     {
                         cell->face(face)->get_dof_indices(dof_indices);
@@ -1064,6 +1064,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
     std::vector<double> overburden_at_quad(n_q_points);
     std::vector<double> old_overburden_at_quad(n_q_points);
     std::vector<double> old_pressure_at_quad(n_q_points);
+    std::vector<double> sedimentation_rates(n_q_points);
 
     for (auto cell : filter_iterators(dof_handler.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
         cell_laplace_matrix = 0;
@@ -1081,6 +1082,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
         const double initial_porosity = material_data.get_surface_porosity(cell->material_id());
         const double compaction_coefficient = material_data.get_compressibility_coefficient(cell->material_id());
         const double initial_permeability = material_data.get_surface_permeability(cell->material_id());
+        sedRate.value_list(fe_values.get_quadrature_points(), sedimentation_rates, 1);
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
 //        if(0 <= pressure_at_quad[q_point]){
@@ -1120,7 +1122,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             const double diff_coeff_at_quad = (perm_k / material_data.fluid_viscosity);
             const double rhs_coeff = material_data.get_compressibility_coefficient(cell->material_id()) * phi / (1 - phi);
             const double rhs_at_quad = rhs_coeff * (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
-                                       9.8 * material_data.fluid_density * (inflow_rate); //TODO replace with sedRate
+                                       9.8 * material_data.fluid_density * sedimentation_rates[q_point]; //TODO replace with sedRate
 
             Assert (0 <= rhs_at_quad, ExcInternalError());
 
@@ -1479,28 +1481,40 @@ void LayerMovementProblem<dim>::output_vectors()
 template <int dim>
 int LayerMovementProblem<dim>::active_layers_in_time (double time)
 {
-    if(time <(1/4.0)*final_time )
+  //equitemporal division over layers
+  for (int i=0;i<n_layers;i++)
     {
-        return 1;
+      double current_fraction= static_cast<double>(i)/(n_layers);
+      if(time<(current_fraction*final_time))
+        {
+          return i; break;
+        }
+
     }
-    else if(time<(2/4.0)*final_time )
-    {
-        return 2;
-    }
-    else if(time<(3/4.0)*final_time )
-    {
-        return 3;
-    }
-    else
-    {
-        return 4;
-    }
+
+//    if(time <(1/4.0)*final_time )
+//    {
+//        return 1;
+//    }
+//    else if(time<(2/4.0)*final_time )
+//    {
+//        return 2;
+//    }
+//    else if(time<(3/4.0)*final_time )
+//    {
+//        return 3;
+//    }
+//    else
+//    {
+//        return 4;
+//    }
 }
 
 
 template <int dim>
 void LayerMovementProblem<dim>::run()
 {
+  constexpr double seconds_in_Myear{60*60*24*365.25*1e6};
 
     // common mesh
     setup_geometry();
@@ -1568,7 +1582,7 @@ void LayerMovementProblem<dim>::run()
     // TIME STEPPING
     timestep_number = 1;
     for (double time = time_step; time <= final_time; time += time_step, ++timestep_number) {
-        pcout << "Time step " << timestep_number << " at t=" << time << std::endl;
+        pcout << "Time step " << timestep_number << " at t=" << time <<"s: "<<time/seconds_in_Myear<<"Ma"<< std::endl;
         pcout<< " % complete:"<<100*(timestep_number*time_step)/final_time<<std::endl; //for constant time_step
         Assert (time_step< final_time, ExcNotImplemented());
         // Solve for F the scalar speed function which is passed to the LevelSetSolver
