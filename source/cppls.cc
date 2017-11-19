@@ -42,6 +42,7 @@ using namespace dealii::LinearAlgebraPETSc;
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/fe/fe_system.h>
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/error_estimator.h>
@@ -121,6 +122,7 @@ private:
     double output_number;
     double final_time;
     int timestep_number;
+    int out_index;
 
     // set timestepping scheme 1 implicit euler, 1/2 CN, 0 explicit euler
     const double theta;
@@ -255,6 +257,10 @@ private:
         output_vectors();
         output_number++;
     }
+    void output_results_pp();
+
+    class Postprocessor;
+
 };
 
 // Constructor
@@ -282,6 +288,7 @@ LayerMovementProblem<dim>::LayerMovementProblem(const CPPLS::Parameters& paramet
 , current_time {parameters.start_time}
 , final_time {parameters.stop_time}
 , output_number {0}
+, out_index{0}
 , theta(parameters.theta)
 {};
 
@@ -1028,15 +1035,20 @@ void LayerMovementProblem<dim>::setup_material_configuration()
             //TODO representation of interface (0 level set or 0.5, etc.) needs to be taken
             //into account in this averaging, as above for 0.5
         }
+        //defining the negative to be below an interface,
+        //if a LS has takes a positive value on the cell
+        //it is added to the counter (cell is "inside" the layer)
+        //the innermost layer is the material id
+        int counter{0};
         for (i=0; i<n_layers; ++i)
         {
 
-            if(id_sum[i]<0)
+            if(id_sum[i]>0)
             {
-                cell->set_material_id(i);
-                break;
+                ++counter;
             }
         }
+        cell->set_material_id(counter);
 
     } // end cell loop
 }
@@ -1396,23 +1408,24 @@ void LayerMovementProblem<dim>::output_vectors_LS()
         data_out.add_data_vector(*layer_sol, layer_out);
         ++i;
     }
-    LA::MPI::Vector ng_material_kind;
-    ng_material_kind.reinit(locally_owned_dofs,  mpi_communicator);
-    LA::MPI::Vector g_material_kind;
-    g_material_kind.reinit(locally_owned_dofs,locally_relevant_dofs,  mpi_communicator);
+//    LA::MPI::Vector ng_material_kind;
+//    ng_material_kind.reinit(locally_owned_dofs,  mpi_communicator);
+//    LA::MPI::Vector g_material_kind;
+//    g_material_kind.reinit(locally_owned_dofs,locally_relevant_dofs,  mpi_communicator);
 
-    //std::vector<unsigned int> material_kind(triangulation.n_active_cells());
-     i = 0;
-    for (auto cell : filter_iterators(triangulation.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
-    ng_material_kind[i]=cell->material_id();
-      ++i;
-    }
-    ng_material_kind.compress(VectorOperation::insert);
-    g_material_kind=ng_material_kind;
+//    //std::vector<unsigned int> material_kind(triangulation.n_active_cells());
+//     i = 0;
+//    for (auto cell : filter_iterators(triangulation.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
+//    ng_material_kind[i]=cell->material_id();
+//      ++i;
+//    }
+//    ng_material_kind.compress(VectorOperation::insert);
+//    g_material_kind=ng_material_kind;
+//    ComputePorosity<dim> porosity;
 
-    data_out.add_data_vector(g_material_kind, "material_kind");
 
-    //data_out.add_data_vector(locally_relevant_solution_LS_0, "LS");
+
+    data_out.add_data_vector(locally_relevant_solution_LS_0, "LS");
     Vector<float> subdomain(triangulation.n_active_cells());
     for (unsigned int i = 0; i < subdomain.size(); ++i)
         subdomain(i) = triangulation.locally_owned_subdomain();
@@ -1495,17 +1508,288 @@ template <int dim>
 int LayerMovementProblem<dim>::active_layers_in_time (double time)
 {
   //equitemporal division over layers
-  for (int i=0;i<n_layers;i++)
+  for (int i=1;i<=n_layers;++i)
     {
       double current_fraction= static_cast<double>(i)/(n_layers);
       if(time<(current_fraction*final_time))
         {
-          return i; break;
+          pcout<<"layer"<<i<<std::endl;
+          return i;
         }
 
     }
 
 }
+
+
+
+
+template <int dim>
+class LayerMovementProblem<dim>::Postprocessor : public DataPostprocessor<dim>
+{
+public:
+  Postprocessor (const CPPLS::MaterialData& material_data,
+                 const CPPLS::Parameters& parameters);
+  virtual
+  void
+  evaluate_vector_field
+  (const DataPostprocessorInputs::Vector<dim> &inputs,
+   std::vector<Vector<double> >               &computed_quantities) const override;
+  virtual std::vector<std::string> get_names () const override;
+  virtual
+  std::vector<DataComponentInterpretation::DataComponentInterpretation>
+  get_data_component_interpretation () const override;
+  virtual UpdateFlags get_needed_update_flags () const override;
+private:
+  const CPPLS::MaterialData& material_data;
+  const CPPLS::Parameters& parameters;
+};
+template <int dim>
+LayerMovementProblem<dim>::Postprocessor::
+Postprocessor (const CPPLS::MaterialData& material_data,
+               const CPPLS::Parameters& parameters)
+  :
+  material_data (material_data),
+  parameters (parameters)
+{}
+template <int dim>
+std::vector<std::string>
+LayerMovementProblem<dim>::Postprocessor::get_names() const
+{
+  std::vector<std::string> solution_names;
+
+  solution_names.push_back ("porosity");
+  solution_names.push_back ("permeability");
+  solution_names.push_back ("VES");
+  solution_names.push_back ("material");
+  solution_names.push_back ("hydrostatic");
+  solution_names.push_back ("overpressure");
+  solution_names.push_back ("overburden");
+  solution_names.push_back ("pore_pressure");
+
+
+
+  //solution_names.push_back ("T");
+
+  return solution_names;
+}
+template <int dim>
+std::vector<DataComponentInterpretation::DataComponentInterpretation>
+LayerMovementProblem<dim>::Postprocessor::
+get_data_component_interpretation () const
+{
+  std::vector<DataComponentInterpretation::DataComponentInterpretation>
+  interpretation;
+  interpretation.push_back (DataComponentInterpretation::component_is_scalar);
+  interpretation.push_back (DataComponentInterpretation::component_is_scalar);
+  interpretation.push_back (DataComponentInterpretation::component_is_scalar);
+  interpretation.push_back (DataComponentInterpretation::component_is_scalar);
+  interpretation.push_back (DataComponentInterpretation::component_is_scalar);
+  interpretation.push_back (DataComponentInterpretation::component_is_scalar);
+  interpretation.push_back (DataComponentInterpretation::component_is_scalar);
+  interpretation.push_back (DataComponentInterpretation::component_is_scalar);
+
+  return interpretation;
+}
+template <int dim>
+UpdateFlags
+LayerMovementProblem<dim>::Postprocessor::get_needed_update_flags() const
+{
+  return update_values | update_gradients | update_q_points;
+}
+template <int dim>
+void
+LayerMovementProblem<dim>::Postprocessor::
+evaluate_vector_field
+(const DataPostprocessorInputs::Vector<dim> &inputs,
+ std::vector<Vector<double> >               &computed_quantities) const
+{
+  const unsigned int n_quadrature_points = inputs.solution_values.size();
+  Assert (inputs.solution_gradients.size() == n_quadrature_points,
+          ExcInternalError());
+  Assert (computed_quantities.size() == n_quadrature_points,
+          ExcInternalError());
+  Assert (inputs.solution_values[0].size() == 3,
+          ExcInternalError());
+
+    //cell properties
+  const typename DoFHandler<dim>::cell_iterator
+    current_cell = inputs.template get_cell<DoFHandler<dim>>();
+  const unsigned int mat_id = current_cell->material_id();
+//  const Point<dim> center = current_cell->center();
+//  const double depth = parameters.box_size- center[1];
+
+  const double initial_porosity = material_data.get_surface_porosity(mat_id);
+  const double compaction_coefficient = material_data.get_compressibility_coefficient(mat_id);
+  const double initial_permeability = material_data.get_surface_permeability(mat_id);
+
+  for (unsigned int q=0; q<n_quadrature_points; ++q)
+    {
+      //point values
+      const Point<dim> point_for_depth = inputs.evaluation_points[q];
+      const double hydrostatic = 9.81*material_data.fluid_density*(parameters.box_size - point_for_depth[1]);//point_for_depth;
+
+      //relabel the incoming components
+      const double overpressure=inputs.solution_values[q](0);
+      const double sigma = inputs.solution_values[q](1);
+      const double speed_function = inputs.solution_values[q](2);
+
+
+      //porosity
+      computed_quantities[q](0)
+          = CPPLS::porosity(overpressure, sigma, initial_porosity, compaction_coefficient, hydrostatic);
+      //permeability
+      computed_quantities[q](1)
+          = CPPLS::permeability(computed_quantities[q](0), initial_permeability, initial_porosity );
+      //VES
+      computed_quantities[q](2)
+          = sigma - overpressure - hydrostatic;
+      //material_id
+      computed_quantities[q](3)
+          =mat_id;
+      computed_quantities[q](4)
+          =hydrostatic;
+      computed_quantities[q](5)
+          =overpressure;
+      computed_quantities[q](6)
+          =sigma;
+      computed_quantities[q](7)
+          =overpressure+hydrostatic;
+
+
+
+    }
+}
+template <int dim>
+void LayerMovementProblem<dim>::output_results_pp ()
+{
+  //computing_timer.enter_section ("Postprocessing");
+  //the purpose of this is to create a vector-valued solution vector, composed of
+  //gluing together the scalar solution vectors(i.e., pressure, overburden and speed function)
+  //for use in the Postprocessor class.
+  //Note these all share one DoFHandler (i.e., dof_handler), so there might be a better way to make the
+  //vector-valued solution.
+  //The current method would allow for joining in the dof_handler_LS solution vectors
+
+
+  const FESystem<dim> joint_fe(fe, 1, fe, 1, fe, 1);
+  //FESystem<dim, dim> joint_fe (FE_Q<dim>(2), 2);
+
+  DoFHandler<dim> joint_dof_handler (triangulation);
+  joint_dof_handler.distribute_dofs (joint_fe);
+  Assert (joint_dof_handler.n_dofs() ==
+          dof_handler.n_dofs()*3,
+          ExcInternalError());
+  LA::MPI::Vector joint_solution;
+  joint_solution.reinit (joint_dof_handler.locally_owned_dofs(), mpi_communicator);
+  {
+    std::vector<types::global_dof_index> local_joint_dof_indices (joint_fe.dofs_per_cell);
+    std::vector<types::global_dof_index> local_dof_indices (fe.dofs_per_cell);
+
+    //std::vector<types::global_dof_index> local_temperature_dof_indices (temperature_fe.dofs_per_cell);
+
+    typename DoFHandler<dim>::active_cell_iterator
+    joint_cell       = joint_dof_handler.begin_active(),
+    joint_endc       = joint_dof_handler.end(),
+    cell      = dof_handler.begin_active();
+//    temperature_cell = temperature_dof_handler.begin_active();
+    for (; joint_cell!=joint_endc;
+         ++joint_cell, ++cell/*, ++temperature_cell*/)
+      if (joint_cell->is_locally_owned())
+        {
+          joint_cell->get_dof_indices (local_joint_dof_indices);
+          cell->get_dof_indices (local_dof_indices);
+//          temperature_cell->get_dof_indices (local_temperature_dof_indices);
+          for (unsigned int i=0; i<joint_fe.dofs_per_cell; ++i)
+            {
+            if (joint_fe.system_to_base_index(i).first.first == 0)
+              {
+                Assert (joint_fe.system_to_base_index(i).second
+                        <
+                        local_dof_indices.size(),
+                        ExcInternalError());
+                joint_solution(local_joint_dof_indices[i])
+                  = locally_relevant_solution_P(local_dof_indices
+                                    [joint_fe.system_to_base_index(i).second]);
+              }
+            else if (joint_fe.system_to_base_index(i).first.first == 1)
+              {
+
+                Assert (joint_fe.system_to_base_index(i).second
+                        <
+                        local_dof_indices.size(),
+                        ExcInternalError());
+                joint_solution(local_joint_dof_indices[i])
+                  = locally_relevant_solution_Sigma(local_dof_indices
+                                         [joint_fe.system_to_base_index(i).second]);
+              }
+              else
+              {
+                Assert (joint_fe.system_to_base_index(i).first.first == 2,
+                        ExcInternalError());
+                Assert (joint_fe.system_to_base_index(i).second
+                        <
+                        local_dof_indices.size(),
+                        ExcInternalError());
+                joint_solution(local_joint_dof_indices[i])
+                  = locally_relevant_solution_F(local_dof_indices
+                                         [joint_fe.system_to_base_index(i).second]);
+
+
+               }
+
+            }
+        }
+  }
+
+  joint_solution.compress(VectorOperation::insert);
+  IndexSet locally_relevant_joint_dofs(joint_dof_handler.n_dofs());
+  DoFTools::extract_locally_relevant_dofs (joint_dof_handler, locally_relevant_joint_dofs);
+  LA::MPI::Vector locally_relevant_joint_solution;
+  pcout<<"sdfsd"<<std::endl;
+  locally_relevant_joint_solution.reinit (joint_dof_handler.locally_owned_dofs(), locally_relevant_joint_dofs, mpi_communicator);
+  locally_relevant_joint_solution = joint_solution;
+  Postprocessor postprocessor ( material_data, parameters);
+  DataOut<dim> data_out;
+  data_out.attach_dof_handler (joint_dof_handler);
+  data_out.add_data_vector (locally_relevant_joint_solution, postprocessor);
+  data_out.build_patches ();
+  static int out_index=0;
+  const std::string filename = ("solution-" +
+                                Utilities::int_to_string (out_index, 5) +
+                                "." +
+                                Utilities::int_to_string
+                                (triangulation.locally_owned_subdomain(), 4) +
+                                ".vtu");
+  std::ofstream output (filename.c_str());
+  data_out.write_vtu (output);
+  if (Utilities::MPI::this_mpi_process(mpi_communicator) == 0)
+    {
+      std::vector<std::string> filenames;
+      for (unsigned int i=0; i<Utilities::MPI::n_mpi_processes(mpi_communicator); ++i)
+        filenames.push_back (std::string("solution-") +
+                             Utilities::int_to_string (out_index, 5) +
+                             "." +
+                             Utilities::int_to_string(i, 4) +
+                             ".vtu");
+      const std::string
+      pvtu_master_filename = ("solution-" +
+                              Utilities::int_to_string (out_index, 5) +
+                              ".pvtu");
+      std::ofstream pvtu_master (pvtu_master_filename.c_str());
+      data_out.write_pvtu_record (pvtu_master, filenames);
+//      const std::string
+//      visit_master_filename = ("solution-" +
+//                               Utilities::int_to_string (out_index, 5) +
+//                               ".visit");
+//      std::ofstream visit_master (visit_master_filename.c_str());
+//      DataOutBase::write_visit_record (visit_master, filenames);
+    }
+  //computing_timer.exit_section ();
+ out_index++;
+}
+
+
 
 
 template <int dim>
@@ -1628,6 +1912,7 @@ void LayerMovementProblem<dim>::run()
         if (timestep_number % output_interval == 0) {
             display_vectors();
         }
+        output_results_pp();
         // output_vectors_Q();
         prepare_next_time_step();
     } // end of time loop

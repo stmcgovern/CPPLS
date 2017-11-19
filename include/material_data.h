@@ -56,7 +56,7 @@ private:
     const std::vector<double> heat_capacity {0.1,1.23,2.01,1.40,2.5}; // J kg / K
     const std::vector<double> surface_porosity {0.5,0.61,0.53,0.4,0.65}; // [-]
     const std::vector<double> surface_permeability {2e-19,2e-18,3e-18,4e-18,5e-18}; //m^2
-    const std::vector<double> solid_density {2720,27200,2320,2820,3020}; // kg/m^3
+    const std::vector<double> solid_density {2720,2720,2320,2820,3020}; // kg/m^3
     const std::vector<double> compressibility_coefficient {2e-11,2e-10,3e-8,1e-8,8e-8}; //Pa^-1
 
 };
