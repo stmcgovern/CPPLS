@@ -62,7 +62,7 @@ private:
     const std::vector<double> solid_density
     {2720,2720,2720,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020}; // kg/m^3
     const std::vector<double> compressibility_coefficient
-    {2e-40,1e-9,1e-9,1e-9,8e-8, 5e-9,3e-8,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Pa^-1
+    {2e-40,1e-9,1e-9,1e-9,1e-9, 1e-9,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Pa^-1
 
 };
 }
