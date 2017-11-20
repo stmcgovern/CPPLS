@@ -1148,7 +1148,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
                         (fe_values.shape_value(i, q_point) * fe_values.shape_value(j, q_point) * fe_values.JxW(q_point));
                 } //end of j
 
-                cell_rhs(i) += (rhs_at_quad * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
+                cell_rhs(i) += (rhs_coeff*rhs_at_quad * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
             } //end of i
         } // end q
 
