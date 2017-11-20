@@ -1128,9 +1128,6 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             Assert(old_phi < 1, ExcInternalError());
 
             const double dphidt = (phi - old_phi) / time_step;
-            if(dphidt >=0 ) {
-                pcout<<" dphidt: "<<dphidt<<std::endl;
-            }
 
             //Assert(dphidt <= 0, ExcInternalError());
 
@@ -1911,9 +1908,9 @@ void LayerMovementProblem<dim>::run()
         //      output_results();
         if (timestep_number % output_interval == 0) {
             display_vectors();
+            output_results_pp();
         }
-        output_results_pp();
-        // output_vectors_Q();
+
         prepare_next_time_step();
     } // end of time loop
 }
