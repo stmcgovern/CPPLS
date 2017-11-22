@@ -1565,6 +1565,7 @@ LayerMovementProblem<dim>::Postprocessor::get_names() const
   solution_names.push_back ("overpressure");
   solution_names.push_back ("overburden");
   solution_names.push_back ("pore_pressure");
+  solution_names.push_back ("speed_function");
 
 
 
@@ -1579,6 +1580,7 @@ get_data_component_interpretation () const
 {
   std::vector<DataComponentInterpretation::DataComponentInterpretation>
   interpretation;
+  interpretation.push_back (DataComponentInterpretation::component_is_scalar);
   interpretation.push_back (DataComponentInterpretation::component_is_scalar);
   interpretation.push_back (DataComponentInterpretation::component_is_scalar);
   interpretation.push_back (DataComponentInterpretation::component_is_scalar);
@@ -1654,6 +1656,8 @@ evaluate_vector_field
           =sigma;
       computed_quantities[q](7)
           =overpressure+hydrostatic;
+      computed_quantities[q](8)
+          =speed_function;
 
 
 
@@ -1662,6 +1666,7 @@ evaluate_vector_field
 template <int dim>
 void LayerMovementProblem<dim>::output_results_pp ()
 {
+  TimerOutput::Scope t(computing_timer, "output_pp");
   //computing_timer.enter_section ("Postprocessing");
   //the purpose of this is to create a vector-valued solution vector, composed of
   //gluing together the scalar solution vectors(i.e., pressure, overburden and speed function)
@@ -1887,7 +1892,7 @@ void LayerMovementProblem<dim>::run()
             }
         }
 
-        output_vectors();
+       // output_vectors();
         // set material ids based on locally_relevant_solution_LS
         setup_material_configuration(); // TODO: move away from cell id to values at quad points
 
