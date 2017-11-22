@@ -714,11 +714,11 @@ void LayerMovementProblem<dim>::assemble_Sigma()
             point_for_depth = fe_values.quadrature_point(q_point);
             const double hydrostatic = 9.81 * material_data.fluid_density *
                                        (parameters.box_size - point_for_depth[1]); // TODO make this dim independent
-            //const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
-            //                           compaction_coefficient, hydrostatic);
-            const double phi = 0.5;
+            const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
+                                       compaction_coefficient, hydrostatic);
+            //const double phi = 0.5;
             Assert(0 < hydrostatic, ExcInternalError());
-            Assert(0 < phi, ExcInternalError());
+            Assert(0 <= phi, ExcInternalError());
             Assert(phi < 1, ExcInternalError());
 
             const double rho_b = bulkdensity(phi, material_data.fluid_density, rock_density);
@@ -884,13 +884,13 @@ void LayerMovementProblem<dim>::assemble_F()
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic);
 
-            Assert(0 < phi, ExcInternalError());
+            Assert(0 <= phi, ExcInternalError());
             Assert(phi < 1, ExcInternalError());
 
             const double old_phi = porosity(old_pressure_at_quad[q_point], old_overburden_at_quad[q_point], initial_porosity,
                                             compaction_coefficient, hydrostatic);
 
-            Assert(0 < old_phi, ExcInternalError());
+            Assert(0 <= old_phi, ExcInternalError());
             Assert(old_phi < 1, ExcInternalError());
 
             const double dphidt = (phi - old_phi) / time_step;
@@ -1115,7 +1115,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             Assert(0 < hydrostatic, ExcInternalError());
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic);
-            Assert(0 < phi, ExcInternalError());
+            Assert(0 <= phi, ExcInternalError());
             Assert(phi < 1, ExcInternalError());
             //Assert(0< (overburden_at_quad[q_point]-pressure_at_quad[q_point]-hydrostatic), ExcInternalError());
 
@@ -1126,7 +1126,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
             const double old_phi = porosity(old_pressure_at_quad[q_point], old_overburden_at_quad[q_point], initial_porosity,
                                             compaction_coefficient, hydrostatic);
-            Assert(0 < old_phi, ExcInternalError());
+            Assert(0 <= old_phi, ExcInternalError());
             Assert(old_phi < 1, ExcInternalError());
 
             const double dphidt = (phi - old_phi) / time_step;
@@ -1135,8 +1135,8 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
             const double diff_coeff_at_quad = (perm_k / material_data.fluid_viscosity);
             const double rhs_coeff = material_data.get_compressibility_coefficient(cell->material_id()) * phi / (1 - phi);
-            const double rhs_at_quad = rhs_coeff * (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
-                                       9.8 * material_data.fluid_density * sedimentation_rates[q_point]; //TODO replace with sedRate
+            const double rhs_at_quad = 0; /*(overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
+                                       (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]); //TODO replace with sedRate*/
 
             Assert (0 <= rhs_at_quad, ExcInternalError());
 
@@ -1150,7 +1150,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
                         (fe_values.shape_value(i, q_point) * fe_values.shape_value(j, q_point) * fe_values.JxW(q_point));
                 } //end of j
 
-                cell_rhs(i) += (rhs_coeff*rhs_at_quad * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
+                cell_rhs(i) += (rhs_at_quad * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
             } //end of i
         } // end q
 
@@ -1273,7 +1273,7 @@ void LayerMovementProblem<dim>::assemble_matrices_T()
                                        (parameters.box_size - point_for_depth[1]); // TODO make this dim independent
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic);
-            Assert(0 < phi < 1, ExcInternalError());
+            //Assert(0 < phi < 1, ExcInternalError());
 
             const double rho_b = bulkdensity(phi, material_data.fluid_density, rock_density);
             const double bulk_hc = bulkheatcapacity(phi, material_data.fluid_heat_capacity, heat_capacity);

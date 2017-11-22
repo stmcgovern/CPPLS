@@ -2,7 +2,7 @@
 #ifndef __MATERIAL_DATA_H_INCLUDED__
 #define __MATERIAL_DATA_H_INCLUDED__
 
-//For now define only 4 rock types
+
 //keep 0th entry for the basement
 
 #include <vector>
@@ -56,15 +56,14 @@ private:
     const std::vector<double> heat_capacity
     {0.1,1.23,2.01,1.40,2.5, 1.23,2.01,1.40,2.5}; // J kg / K
     const std::vector<double> surface_porosity
-    {0.61,0.61,0.61,0.61,0.61, 0.61,0.61,0.61,0.61,0.61, 0.61,0.61,0.61,0.61,0.65}; // [-]
+    {0,0.61,0.61,0.61,0.61, 0.61,0.61,0.61,0.61,0.61, 0.61,0.61,0.61,0.61,0.65}; // [-]
     const std::vector<double> surface_permeability
-    {2e-40,1e-19,3e-19,4e-19,5e-19, 1e-19,3e-18,4e-18,5e-18, 1e-16,3e-18,4e-18,5e-18}; //m^2
+    {1e-200,1e-21,3e-21,4e-21,5e-19, 1e-19,3e-18,4e-18,5e-18, 1e-16,3e-18,4e-18,5e-18}; //m^2
     const std::vector<double> solid_density
-    {2720,2720,2720,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020}; // kg/m^3
+    {0,2720,2720,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020}; // kg/m^3
     const std::vector<double> compressibility_coefficient
-    {2e-40,1e-9,1e-9,1e-9,1e-9, 1e-9,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Pa^-1
+    {1e-200,1e-9,1e-9,1e-9,1e-9, 1e-9,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Pa^-1
 
 };
 }
-
 #endif
