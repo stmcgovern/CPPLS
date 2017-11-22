@@ -39,25 +39,66 @@ double bulkheatcapacity(const double porosity, const double fluid_heat_capacity,
     return (porosity * fluid_heat_capacity + (1 - porosity) * solid_heat_capacity);
 }
 
+
+
+//template <int dim>
+//class LayerMovementProblem<dim>::Postprocessor : public DataPostprocessor<dim>
+//{
+//public:
+//  Postprocessor (const CPPLS::MaterialData& material_data,
+//                 const CPPLS::Parameters& parameters);
+//  virtual
+//  void
+//  evaluate_vector_field
+//  (const DataPostprocessorInputs::Vector<dim> &inputs,
+//   std::vector<Vector<double> >               &computed_quantities) const override;
+//  virtual std::vector<std::string> get_names () const override;
+//  virtual
+//  std::vector<DataComponentInterpretation::DataComponentInterpretation>
+//  get_data_component_interpretation () const override;
+//  virtual UpdateFlags get_needed_update_flags () const override;
+//private:
+//  const CPPLS::MaterialData& material_data;
+//  const CPPLS::Parameters& parameters;
+//};
+//template <int dim>
+//LayerMovementProblem<dim>::Postprocessor::
+//Postprocessor (const CPPLS::MaterialData& material_data,
+//               const CPPLS::Parameters& parameters)
+//  :
+//  material_data (material_data),
+//  parameters (parameters)
+//{}
+//template <int dim>
+//std::vector<std::string>
+//LayerMovementProblem<dim>::Postprocessor::get_names() const
+//
+
+
 template <int dim>
 class SedimentationRate : public Function<dim> {
 public:
-    SedimentationRate(double t = 0)
-        : Function<dim>()
-    {
-        this->set_time(t);
-    }
-    virtual double value(const Point<dim>& p, const unsigned int component = 0) const;
+    SedimentationRate(double t, const CPPLS::Parameters& parameters)
+        : Function<dim>(),
+          parameters(parameters){}
+//    {
+//        this->set_time(t);
+//    }
+    virtual double value(const Point<dim>& p, const unsigned int component = 0) const override;
 
     virtual void value_list(const std::vector<Point<dim>>& points, std::vector<double>& values,
-                            const unsigned int component) const;
+                            const unsigned int component) const override;
+private:
+    const CPPLS::Parameters& parameters;
+
 };
 // Sedimentation rate in the <dim 2> along x and <dim 3> x-y plane
 template <int dim>
 double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) const
 {
 
-    double return_value = 0;
+    double return_value = 10;
+    const double time = this->get_time();
 
     switch (dim) {
     case 1: {
@@ -68,12 +109,20 @@ double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) co
         double x = p[0];
         double y = p[1];
 
-
+        if(time<(parameters.stop_time/2))
+        {
+           return_value=-1*parameters.base_sedimentation_rate*(1+0.1*sin(numbers::PI*x/200));
+        }
+        else
+          {
+          return_value=-1*parameters.base_sedimentation_rate*(1+0.1*sin(numbers::PI*x/500));
+           }
         //return std::abs(sin(x)); return (-3.15e-11*(1+0.1*std::abs(sin(x))));
         //return (-3.15e-11*(1+0.2*std::abs(sin(numbers::PI*x/200))));
-        return (-3.15e-11*(1+0.1*sin(numbers::PI*x/200)));
+        //return (-3.15e-11*(1+0.1*sin(numbers::PI*x/200)));
         //return (-3.15e-11*(1+(x/10000)));
-        // return return_value;
+
+        return return_value;
 
         break;
     }

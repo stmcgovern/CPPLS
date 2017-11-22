@@ -285,7 +285,7 @@ LayerMovementProblem<dim>::LayerMovementProblem(const CPPLS::Parameters& paramet
 , pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator) == 0))
 , computing_timer(mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times)
 , time_step((parameters.stop_time - parameters.start_time) / parameters.n_time_steps)
-, current_time {parameters.start_time}
+, current_time {0}
 , final_time {parameters.stop_time}
 , output_number {0}
 , out_index{0}
@@ -542,9 +542,11 @@ void LayerMovementProblem<dim>::setup_system_F()
     constraints_F.reinit(locally_relevant_dofs);
 
     DoFTools::make_hanging_node_constraints(dof_handler, constraints_F);
+    SedimentationRate<dim> sedrate(current_time, parameters);
+    sedrate.set_time(current_time);
 
     // inflow bc at top
-    VectorTools::interpolate_boundary_values(dof_handler, 3, SedimentationRate<dim>(),
+    VectorTools::interpolate_boundary_values(dof_handler, 3, sedrate,
             constraints_F);
     constraints_F.close();
 
@@ -681,7 +683,7 @@ void LayerMovementProblem<dim>::assemble_Sigma()
     std::vector<double> pressure_at_quad(n_q_points);
 
     Point<dim> point_for_depth;
-    SedimentationRate<dim> sedRate; // rate is a negative quantity
+    SedimentationRate<dim> sedRate(current_time, parameters); // rate is a negative quantity
 
     std::vector<double> sedimentation_rate(n_q_points);
 
@@ -845,7 +847,7 @@ void LayerMovementProblem<dim>::assemble_F()
     std::vector<double> old_pressure_at_quad(n_q_points);
 
     Point<dim> point_for_depth;
-    SedimentationRate<dim> sedRate;
+    SedimentationRate<dim> sedRate(current_time, parameters);
 
     std::vector<double> sedimentation_rate(n_q_points);
 
@@ -1073,7 +1075,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
     Point<dim> point_for_depth;
 
-    SedimentationRate<dim> sedRate;
+    SedimentationRate<dim> sedRate(current_time, parameters );
 
     std::vector<double> pressure_at_quad(n_q_points);
     std::vector<double> overburden_at_quad(n_q_points);
@@ -1863,6 +1865,9 @@ void LayerMovementProblem<dim>::run()
         pcout << "Time step " << timestep_number << " at t=" << time <<"s: "<<time/seconds_in_Myear<<"Ma"<< std::endl;
         pcout<< " % complete:"<<100*(timestep_number*time_step)/final_time<<std::endl; //for constant time_step
         Assert (time_step< final_time, ExcNotImplemented());
+
+        current_time=time;
+
         // Solve for F the scalar speed function which is passed to the LevelSetSolver
         // which expects the vector (wx,wy) or (wx,wy,wz)
         // dim=2 we pass F as wy and dim=3 we pass F as wz with 0 otherwise
@@ -1894,16 +1899,18 @@ void LayerMovementProblem<dim>::run()
         assemble_matrices_P();
         forge_system_P();
         solve_time_step_P(); // temp_loc_r_s_P
+        output_results_pp();
 
         // Solve temperature (coefficients depend on porosity, and TODO: should influence viscosity)
 
         //    assemble_matrices_T();
         //    forge_system_T();
         //    solve_time_step_T();
-
+        setup_system_F();
         assemble_F();
         solve_F();
-
+        //setup_system_F();
+//locally_relevant_solution_F = -1*base_sedimentation_rate;
         //    if (get_output && time - (output_number)*output_time > 0)
         //      output_results();
         if (timestep_number % output_interval == 0) {
