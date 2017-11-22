@@ -1863,11 +1863,12 @@ void LayerMovementProblem<dim>::run()
         layers_solutions[i]->reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
 
         layers[i]->set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
+        //TODO make this dim independent
         layers[i]->initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Wxy,
-                                     locally_relevant_solution_F);
+                                     locally_relevant_solution_Wxy, locally_relevant_solution_F);
     }
 
-
+    //display_vectors();
 
     // TIME STEPPING
     timestep_number = 1;
