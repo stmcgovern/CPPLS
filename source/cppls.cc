@@ -378,7 +378,7 @@ void LayerMovementProblem<dim>::setup_dofs()
 
     //starting_indices=locally_owned_dofs;
 // DoFTools::extract_locally_owned_dofs(dof_handler, starting_indices);
-// DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
+ DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
     //Not working in parallel now
     //DoFRenumbering::downstream(dof_handler, direction, true);
 
@@ -389,8 +389,8 @@ void LayerMovementProblem<dim>::setup_dofs()
           << "Number of degrees of freedom: " << dof_handler.n_dofs() << std::endl
           << std::endl;
 
-//  locally_owned_dofs = dof_handler.locally_owned_dofs();
-//  DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
+  locally_owned_dofs = dof_handler.locally_owned_dofs();
+  DoFTools::extract_locally_relevant_dofs(dof_handler, locally_relevant_dofs);
 }
 
 template <int dim>
