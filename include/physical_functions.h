@@ -142,9 +142,8 @@ double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) co
         double x = p[0];
         double y = p[1];
         double z = p[2];
-        if (z == 1) {
-            return_value = 0.25;
-        }
+
+        return_value=-1*parameters.base_sedimentation_rate;
         return return_value;
         break;
     }
@@ -179,11 +178,32 @@ public:
 template <int dim>
 Tensor<1, dim> AdvectionField<dim>::value(const Point<dim>& p) const
 {
-    //TODO add dim switch
+
     Point<dim> value;
-    value[0] = 0;
-    value[1] = -1;
-    return value;
+
+    switch (dim) {
+    case 1: {
+        Assert(false, ExcNotImplemented());
+        break;
+    }
+    case 2: {
+          value[0] = 0;
+          value[1] = -1;
+          return value;
+          break;
+        }
+    case 3:{
+          value[0] = 0;
+          value[1] = 0;
+          value[2] = -1;
+          return value;
+          break;
+
+        }
+      default:
+          Assert(false, ExcNotImplemented());
+      }
+
 }
 template <int dim>
 void AdvectionField<dim>::value_list(const std::vector<Point<dim>>& points, std::vector<Tensor<1, dim>>& values) const
@@ -236,9 +256,13 @@ double Initial_LS<dim>::value(const Point<dim>& p, const unsigned int) const
         double x = p[0];
         double y = p[1];
         double z = p[2];
-        return 0.5 * (-std::tanh((y - 0.3) / sharpness) * std::tanh((y - 0.35) / sharpness) + 1) *
-               (-std::tanh((x - 0.02) / sharpness) + 1) -
-               1;
+//        return 0.5 * (-std::tanh((y - 0.3) / sharpness) * std::tanh((y - 0.35) / sharpness) + 1) *
+//               (-std::tanh((x - 0.02) / sharpness) + 1) -
+//               1;
+        return_value = 0.5*(1+ std::tanh((z - (box_size_z - (box_size_z / 100))) / sharpness));
+        Assert (return_value <= 1 ,ExcInternalError());
+        Assert (return_value >= -1 ,ExcInternalError());
+        return return_value;
         break;
     }
     default:

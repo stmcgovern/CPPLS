@@ -342,7 +342,7 @@ void LayerMovementProblem<dim>::setup_dofs()
                                      update_JxW_values);
 
     Tensor<1, dim> u;
-    Point<dim> down {0,-1};
+    Point<dim> down {0,0,-1};//TODO
     std::vector< types::global_dof_index >dof_indices (fe.n_dofs_per_face(), 0);
 
 
@@ -422,7 +422,8 @@ void LayerMovementProblem<dim>::setup_system_P()
 
     DoFTools::make_hanging_node_constraints(dof_handler, constraints_P);
     // zero dirichlet at top
-    VectorTools::interpolate_boundary_values(dof_handler, 3, ZeroFunction<dim>(),
+    //the "top" has boundary_id = dim*2-1; (so 3 for 2d, 5 for 3d)
+    VectorTools::interpolate_boundary_values(dof_handler, dim*2-1, ZeroFunction<dim>(),
             constraints_P); // TODO get rid of raw number
     constraints_P.close();
 
@@ -463,7 +464,8 @@ void LayerMovementProblem<dim>::setup_system_T()
 
     DoFTools::make_hanging_node_constraints(dof_handler, constraints_T);
     // zero dirichlet at top
-    VectorTools::interpolate_boundary_values(dof_handler, 3, ZeroFunction<dim>(),
+    //the "top" has boundary_id = dim*2-1; (so 3 for 2d, 5 for 3d)
+    VectorTools::interpolate_boundary_values(dof_handler, dim*2-1, ZeroFunction<dim>(),
             constraints_T); // TODO again raw number for boundary_id
     // Keep top at fixed temperature, TODO check compatibility condition
     // VectorTools::interpolate_boundary_values(dof_handler_T, 3, ConstantFunction<dim>(20), constraints_T);
@@ -505,9 +507,10 @@ void LayerMovementProblem<dim>::setup_system_Sigma()
     DoFTools::make_hanging_node_constraints(dof_handler, constraints_Sigma);
 
     // inflow bc at top
+    //the "top" has boundary_id = dim*2-1; (so 3 for 2d, 5 for 3d)
 //VectorTools::interpolate_boundary_values(dof_handler, 3, ConstantFunction<dim>(inflow_rate*15000),
 //                                           constraints_Sigma); // TODO put in sedimentation(x,y,t)
-    VectorTools::interpolate_boundary_values(dof_handler, 3, ZeroFunction<dim>(),
+    VectorTools::interpolate_boundary_values(dof_handler, dim*2-1, ZeroFunction<dim>(),
             constraints_Sigma);
     constraints_Sigma.close();
 
@@ -547,7 +550,8 @@ void LayerMovementProblem<dim>::setup_system_F()
     sedrate.set_time(current_time);
 
     // inflow bc at top
-    VectorTools::interpolate_boundary_values(dof_handler, 3, sedrate,
+    //the "top" has boundary_id = dim*2-1; (so 3 for 2d, 5 for 3d)
+    VectorTools::interpolate_boundary_values(dof_handler, dim*2-1, sedrate,
             constraints_F);
     constraints_F.close();
 
@@ -644,7 +648,8 @@ void LayerMovementProblem<dim>::get_boundary_values_LS(std::vector<unsigned int>
     // set_boundary_inlet();
     boundary_id = 10; // inlet
     // we define the inlet to be at the top, i.e. boundary_id=3
-    VectorTools::interpolate_boundary_values(dof_handler_LS, 3, BoundaryPhi<dim>(1.0), map_boundary_values_LS);
+    //the "top" has boundary_id = dim*2-1; (so 3 for 2d, 5 for 3d)
+    VectorTools::interpolate_boundary_values(dof_handler_LS, dim*2-1, BoundaryPhi<dim>(1.0), map_boundary_values_LS);
     boundary_values_id_LS.resize(map_boundary_values_LS.size());
     boundary_values_LS.resize(map_boundary_values_LS.size());
     std::map<unsigned int, double>::const_iterator boundary_value_LS = map_boundary_values_LS.begin();
@@ -714,7 +719,7 @@ void LayerMovementProblem<dim>::assemble_Sigma()
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
             point_for_depth = fe_values.quadrature_point(q_point);
             const double hydrostatic = 9.81 * material_data.fluid_density *
-                                       (parameters.box_size - point_for_depth[1]); // TODO make this dim independent
+                                       (parameters.box_size - point_for_depth[dim-1]);
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                        compaction_coefficient, hydrostatic);
             //const double phi = 0.5;
@@ -728,7 +733,7 @@ void LayerMovementProblem<dim>::assemble_Sigma()
 
 
             //this should point "down"
-            Assert( 0 > advection_directions[q_point][1], ExcInternalError());
+            Assert( 0 > advection_directions[q_point][dim-1], ExcInternalError());
 
             //Assert ( 0 <sedimentation_rate[q_point], ExcInternalError());
 
@@ -880,7 +885,7 @@ void LayerMovementProblem<dim>::assemble_F()
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
             point_for_depth = fe_values.quadrature_point(q_point);
             const double hydrostatic = 9.81 * material_data.fluid_density *
-                                       (parameters.box_size - point_for_depth[1]); // TODO make this dim independent
+                                       (parameters.box_size - point_for_depth[dim-1]);
             Assert(0 < hydrostatic, ExcInternalError());
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic);
@@ -1111,7 +1116,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
             point_for_depth = fe_values.quadrature_point(q_point);
             const double hydrostatic = 9.81 * material_data.fluid_density *
-                                       (parameters.box_size - point_for_depth[1]); // TODO make this dim independent
+                                       (parameters.box_size - point_for_depth[dim-1]);
             Assert(0 < hydrostatic, ExcInternalError());
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic);
@@ -1270,7 +1275,7 @@ void LayerMovementProblem<dim>::assemble_matrices_T()
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
             point_for_depth = fe_values.quadrature_point(q_point);
             const double hydrostatic = 9.81 * material_data.fluid_density *
-                                       (parameters.box_size - point_for_depth[1]); // TODO make this dim independent
+                                       (parameters.box_size - point_for_depth[dim-1]); // TODO make this dim independent
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic);
             //Assert(0 < phi < 1, ExcInternalError());
@@ -1628,7 +1633,7 @@ evaluate_vector_field
     {
       //point values
       const Point<dim> point_for_depth = inputs.evaluation_points[q];
-      const double hydrostatic = 9.81*material_data.fluid_density*(parameters.box_size - point_for_depth[1]);//point_for_depth;
+      const double hydrostatic = 9.81*material_data.fluid_density*(parameters.box_size - point_for_depth[dim-1]);//point_for_depth;
 
       //relabel the incoming components
       const double overpressure=inputs.solution_values[q](0);
@@ -1884,7 +1889,8 @@ void LayerMovementProblem<dim>::run()
             TimerOutput::Scope t(computing_timer, "LS");
             for(int i=0; i<n_active_layers; ++i)
             {
-                layers[i]->set_velocity(locally_relevant_solution_Wxy, locally_relevant_solution_F);
+                //TODO make this dim independent
+                layers[i]->set_velocity(locally_relevant_solution_Wxy,locally_relevant_solution_Wxy, locally_relevant_solution_F);
                 layers[i]->nth_time_step();
                 layers[i]->get_unp1(locally_relevant_solution_LS_0);
                 (*layers_solutions[i])=locally_relevant_solution_LS_0;
@@ -1930,7 +1936,7 @@ void LayerMovementProblem<dim>::run()
 
 } // end namespace CPPLS
 
-constexpr int dim {2};
+constexpr int dim {3};
 //constexpr double inflow_rate{3.15e-11};
 
 int main(int argc, char* argv[])

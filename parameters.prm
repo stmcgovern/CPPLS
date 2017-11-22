@@ -24,7 +24,7 @@ end
 subsection Finite Element
 
 #number of initial global refinements - note: (2^dim)^initial_refinement_level = n_cells
-  set initial_refinement_level = 6
+  set initial_refinement_level = 4
 #finite element degree of the physical quantity dof_handler, FE_Q
   set degree = 2
 #finite element degree of the level set dof_handler, FE_Q
