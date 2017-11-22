@@ -168,7 +168,7 @@ private:
     void get_map_from_Q1_to_Q2();
     void solve(const ConstraintMatrix &constraints,
                PETScWrappers::MPI::SparseMatrix &Matrix,
-               std_cxx1x::shared_ptr<PETScWrappers::PreconditionBoomerAMG> preconditioner,
+               std::shared_ptr<PETScWrappers::PreconditionBoomerAMG> preconditioner,
                PETScWrappers::MPI::Vector &completely_distributed_solution,
                const PETScWrappers::MPI::Vector &rhs);
     void save_old_solution();
@@ -207,7 +207,7 @@ private:
 
     // MASS MATRIX
     PETScWrappers::MPI::SparseMatrix MC_matrix;
-    std_cxx1x::shared_ptr<PETScWrappers::PreconditionBoomerAMG> MC_preconditioner;
+    std::shared_ptr<PETScWrappers::PreconditionBoomerAMG> MC_preconditioner;
 
     // BOUNDARIES
     std::vector<unsigned int> boundary_values_id_u;
@@ -1544,7 +1544,7 @@ void LevelSetSolver<dim>::get_map_from_Q1_to_Q2()
 template <int dim>
 void LevelSetSolver<dim>::solve(const ConstraintMatrix &constraints,
                                 PETScWrappers::MPI::SparseMatrix &Matrix,
-                                std_cxx1x::shared_ptr<PETScWrappers::PreconditionBoomerAMG> preconditioner,
+                                std::shared_ptr<PETScWrappers::PreconditionBoomerAMG> preconditioner,
                                 PETScWrappers::MPI::Vector &completely_distributed_solution,
                                 const PETScWrappers::MPI::Vector &rhs)
 {
