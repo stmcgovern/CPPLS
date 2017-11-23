@@ -5,7 +5,7 @@ subsection Geometry
 #side length of the square/cube (m)
   set box_size = 1024
 #set the sedimentation rate (m/s) - TODO:individual layer speeds can vary around this
-  set base_sedimentation_rate = 3.15e-11
+  set base_sedimentation_rate = 3.19e-11
 end
 
 subsection Layer Parameters
@@ -55,7 +55,7 @@ end
 
 subsection Output
 #ouput solution vectors every x time steps
-  set output_interval = 1
+  set output_interval = 10
 #not used
   set patch_level = 1
 end

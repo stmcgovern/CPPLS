@@ -378,7 +378,7 @@ void LayerMovementProblem<dim>::setup_dofs()
 
     //starting_indices=locally_owned_dofs;
 // DoFTools::extract_locally_owned_dofs(dof_handler, starting_indices);
- DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
+ //DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
     //Not working in parallel now
     //DoFRenumbering::downstream(dof_handler, direction, true);
 
@@ -1135,10 +1135,10 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
             const double diff_coeff_at_quad = (perm_k / material_data.fluid_viscosity);
             const double rhs_coeff = material_data.get_compressibility_coefficient(cell->material_id()) * phi / (1 - phi);
-            const double rhs_at_quad = 0; /*(overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
-                                       (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]); //TODO replace with sedRate*/
+            const double rhs_at_quad =(overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
+                                       (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]);
 
-            Assert (0 <= rhs_at_quad, ExcInternalError());
+            //Assert (0 <= rhs_at_quad, ExcInternalError());
 
             for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j) {
@@ -1150,7 +1150,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
                         (fe_values.shape_value(i, q_point) * fe_values.shape_value(j, q_point) * fe_values.JxW(q_point));
                 } //end of j
 
-                cell_rhs(i) += (rhs_at_quad * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
+                cell_rhs(i) += rhs_coeff*(rhs_at_quad * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
             } //end of i
         } // end q
 

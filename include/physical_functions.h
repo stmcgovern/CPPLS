@@ -99,6 +99,7 @@ double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) co
 
     double return_value = 10;
     const double time = this->get_time();
+    const double magnify=0.3;
 
     switch (dim) {
     case 1: {
@@ -108,15 +109,22 @@ double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) co
     case 2: {
         double x = p[0];
         double y = p[1];
+        double mid =x -parameters.box_size/2;
 
-        if(time<(parameters.stop_time/2))
+        if(time<(parameters.stop_time/3))
         {
-           return_value=-1*parameters.base_sedimentation_rate*(1+0.1*sin(numbers::PI*x/200));
+           return_value=-1*parameters.base_sedimentation_rate*(1+magnify*sin(numbers::PI*x/1000));
         }
+        else if(time<(2*parameters.stop_time/3))
+          {
+          return_value=-1*parameters.base_sedimentation_rate*(1+magnify*std::exp(-1*(mid)*(mid)/(2*parameters.box_size)));
+           }
         else
           {
-          return_value=-1*parameters.base_sedimentation_rate*(1+0.1*sin(numbers::PI*x/500));
+          return_value=-1*parameters.base_sedimentation_rate*(1-magnify*std::exp(-1*(mid)*(mid)/(parameters.box_size)));
            }
+
+
         //return std::abs(sin(x)); return (-3.15e-11*(1+0.1*std::abs(sin(x))));
         //return (-3.15e-11*(1+0.2*std::abs(sin(numbers::PI*x/200))));
         //return (-3.15e-11*(1+0.1*sin(numbers::PI*x/200)));
