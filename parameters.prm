@@ -10,7 +10,7 @@ end
 
 subsection Layer Parameters
 #number of sedimentary layers, not including basement
-  set n_layers = 2
+  set n_layers = 3
 
 # a sequence of rock_types to be added
 # length of array must be = n_layers
@@ -55,7 +55,7 @@ end
 
 subsection Output
 #ouput solution vectors every x time steps
-  set output_interval = 10
+  set output_interval = 100
 #not used
   set patch_level = 1
 end

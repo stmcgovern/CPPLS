@@ -630,7 +630,7 @@ void LayerMovementProblem<dim>::initial_conditions()
                              completely_distributed_solution_LS_0);
     constraints_LS.distribute(completely_distributed_solution_LS_0);
     locally_relevant_solution_LS_0 = completely_distributed_solution_LS_0;
-    output_vectors_LS();
+
 }
 
 template <int dim>
@@ -810,7 +810,7 @@ void LayerMovementProblem<dim>::solve_Sigma()
     pcout << " Overburden supg system solved in " << solver_control.last_step() << " iterations." << std::endl;
 
     constraints_Sigma.distribute(completely_distributed_solution);
-
+    //old_locally_relevant_solution_Sigma=locally_relevant_solution_Sigma;
     locally_relevant_solution_Sigma = completely_distributed_solution;
 }
 
@@ -1026,8 +1026,7 @@ void LayerMovementProblem<dim>::setup_material_configuration()
 
             for (unsigned int q_point = 0; q_point < n_q_points; ++q_point)
             {
-                //         output_vectors_LS();
-                //         abort();
+
                 Assert(LS_at_quad[i][q_point] < 1.5, ExcInternalError());
                 Assert(-1.5 < LS_at_quad[i][q_point], ExcInternalError());
                 //do the y=2x-1 switch so the -/+ still works
@@ -1750,7 +1749,7 @@ void LayerMovementProblem<dim>::output_results_pp ()
   IndexSet locally_relevant_joint_dofs(joint_dof_handler.n_dofs());
   DoFTools::extract_locally_relevant_dofs (joint_dof_handler, locally_relevant_joint_dofs);
   LA::MPI::Vector locally_relevant_joint_solution;
-  pcout<<"sdfsd"<<std::endl;
+
   locally_relevant_joint_solution.reinit (joint_dof_handler.locally_owned_dofs(), locally_relevant_joint_dofs, mpi_communicator);
   locally_relevant_joint_solution = joint_solution;
   Postprocessor postprocessor ( material_data, parameters);
@@ -1892,7 +1891,6 @@ void LayerMovementProblem<dim>::run()
             }
         }
 
-       // output_vectors();
         // set material ids based on locally_relevant_solution_LS
         setup_material_configuration(); // TODO: move away from cell id to values at quad points
 
@@ -1904,7 +1902,6 @@ void LayerMovementProblem<dim>::run()
         assemble_matrices_P();
         forge_system_P();
         solve_time_step_P(); // temp_loc_r_s_P
-        output_results_pp();
 
         // Solve temperature (coefficients depend on porosity, and TODO: should influence viscosity)
 
@@ -1925,7 +1922,9 @@ void LayerMovementProblem<dim>::run()
 
         prepare_next_time_step();
     } // end of time loop
-}
+    //output once at the end
+    output_results_pp();
+} //end of run function
 
 
 } // end namespace CPPLS

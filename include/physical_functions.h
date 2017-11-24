@@ -110,18 +110,22 @@ double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) co
         double x = p[0];
         double y = p[1];
         double mid =x -parameters.box_size/2;
+        double left=x -parameters.box_size/4;
+        double right=x -3*parameters.box_size/4;
 
         if(time<(parameters.stop_time/3))
         {
-           return_value=-1*parameters.base_sedimentation_rate*(1+magnify*sin(numbers::PI*x/1000));
+           return_value=-1*parameters.base_sedimentation_rate*(1+1.1*magnify*sin(numbers::PI*x/1000));
         }
         else if(time<(2*parameters.stop_time/3))
           {
-          return_value=-1*parameters.base_sedimentation_rate*(1+magnify*std::exp(-1*(mid)*(mid)/(2*parameters.box_size)));
+          return_value=-1*parameters.base_sedimentation_rate*(1+magnify*std::exp(-1*(mid)*(mid)/(2*parameters.box_size))
+                                                              +0.1*magnify*sin(numbers::PI*x/1000));
            }
         else
           {
-          return_value=-1*parameters.base_sedimentation_rate*(1-magnify*std::exp(-1*(mid)*(mid)/(parameters.box_size)));
+          return_value=-1*parameters.base_sedimentation_rate*(1-magnify*std::exp(-1*(left)*(left)/(parameters.box_size))
+                                                              -magnify*std::exp(-1*(right)*(right)/(parameters.box_size)));
            }
 
 
