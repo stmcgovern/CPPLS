@@ -836,9 +836,9 @@ void LayerMovementProblem<dim>::assemble_F()
     FEValues<dim> fe_values(fe, quadrature_formula,
                             update_values | update_quadrature_points | update_JxW_values | update_gradients);
 
-    FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
-                                     update_values | update_quadrature_points | update_normal_vectors |
-                                     update_JxW_values);
+//    FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
+//                                     update_values | update_quadrature_points | update_normal_vectors |
+//                                     update_JxW_values);
 
     const unsigned int dofs_per_cell = fe.dofs_per_cell;
     const unsigned int n_q_points = quadrature_formula.size();
@@ -848,9 +848,9 @@ void LayerMovementProblem<dim>::assemble_F()
 
     std::vector<double> rhs_at_quad(n_q_points);
     std::vector<Tensor<1, dim>> advection_directions(n_q_points);
-    std::vector<Tensor<1, dim>> face_advection_directions(n_face_q_points);
+//    std::vector<Tensor<1, dim>> face_advection_directions(n_face_q_points);
 
-    advection_field.value_list(fe_values.get_quadrature_points(), advection_directions);
+
     std::vector<double> overburden_at_quad(n_q_points);
     std::vector<double> old_overburden_at_quad(n_q_points);
     std::vector<double> pressure_at_quad(n_q_points);
@@ -879,7 +879,7 @@ void LayerMovementProblem<dim>::assemble_F()
         // TODO consider moving these properties to the quad point level, not just cell level
         const double initial_porosity = material_data.get_surface_porosity(cell->material_id());
         const double compaction_coefficient = material_data.get_compressibility_coefficient(cell->material_id());
-
+        advection_field.value_list(fe_values.get_quadrature_points(), advection_directions);
         sedRate.value_list(fe_values.get_quadrature_points(), sedimentation_rate, 1);
 
         cell_rhs = 0;
