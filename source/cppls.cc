@@ -298,6 +298,7 @@ LayerMovementProblem<dim>::~LayerMovementProblem()
 {
     dof_handler.clear();
     dof_handler_LS.clear();
+    triangulation.clear();
 }
 
 //
