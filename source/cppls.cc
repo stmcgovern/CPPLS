@@ -382,7 +382,7 @@ void LayerMovementProblem<dim>::setup_dofs()
 
     //starting_indices=locally_owned_dofs;
 // DoFTools::extract_locally_owned_dofs(dof_handler, starting_indices);
- //DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
+ DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
     //Not working in parallel now
     //DoFRenumbering::downstream(dof_handler, direction, true);
 
@@ -1809,6 +1809,7 @@ template <int dim>
 void LayerMovementProblem<dim>::run()
 {
   constexpr double seconds_in_Myear{60*60*24*365.25*1e6};
+  pcout<<"CPPLS running in "<<dim<<" dimensions"<<std::endl;
 
     // common mesh
     setup_geometry();
@@ -1940,16 +1941,16 @@ void LayerMovementProblem<dim>::run()
 //locally_relevant_solution_F = -1*base_sedimentation_rate;
         //    if (get_output && time - (output_number)*output_time > 0)
         //      output_results();
-        if (timestep_number % output_interval == 0) {
-            display_vectors();
-            output_results_pp();
-        }
+//        if (timestep_number % output_interval == 0) {
+//            display_vectors();
+//            output_results_pp();
+//        }
 
         prepare_next_time_step();
     } // end of time loop
 
     //output once at the end
-    output_results_pp();
+   // output_results_pp();
 } //end of run function
 
 
