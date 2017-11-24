@@ -342,7 +342,10 @@ void LayerMovementProblem<dim>::setup_dofs()
                                      update_JxW_values);
 
     Tensor<1, dim> u;
-    Point<dim> down {0,0,-1};//TODO
+    Point<dim> down;
+    down(dim-1)=-1;
+
+
     std::vector< types::global_dof_index >dof_indices (fe.n_dofs_per_face(), 0);
 
 
@@ -670,9 +673,9 @@ void LayerMovementProblem<dim>::assemble_Sigma()
     FEValues<dim> fe_values(fe, quadrature_formula,
                             update_values | update_quadrature_points | update_JxW_values | update_gradients);
 
-    FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
-                                     update_values | update_quadrature_points | update_normal_vectors |
-                                     update_JxW_values);
+//    FEFaceValues<dim> fe_face_values(fe, face_quadrature_formula,
+//                                     update_values | update_quadrature_points | update_normal_vectors |
+//                                     update_JxW_values);
 
     const unsigned int dofs_per_cell = fe.dofs_per_cell;
     const unsigned int n_q_points = quadrature_formula.size();
@@ -682,9 +685,9 @@ void LayerMovementProblem<dim>::assemble_Sigma()
 
     std::vector<double> rhs_at_quad(n_q_points);
     std::vector<Tensor<1, dim>> advection_directions(n_q_points);
-    std::vector<Tensor<1, dim>> face_advection_directions(n_face_q_points);
+//    std::vector<Tensor<1, dim>> face_advection_directions(n_face_q_points);
 
-    advection_field.value_list(fe_values.get_quadrature_points(), advection_directions);
+
     std::vector<double> overburden_at_quad(n_q_points);
     std::vector<double> pressure_at_quad(n_q_points);
 
@@ -710,7 +713,8 @@ void LayerMovementProblem<dim>::assemble_Sigma()
         const double compaction_coefficient = material_data.get_compressibility_coefficient(cell->material_id());
         const double rock_density = material_data.get_solid_density(cell->material_id());
 
-        sedRate.value_list(fe_values.get_quadrature_points(), sedimentation_rate, 1);
+         sedRate.value_list(fe_values.get_quadrature_points(), sedimentation_rate, 1);
+         advection_field.value_list(fe_values.get_quadrature_points(), advection_directions);
 
         cell_rhs = 0;
         cell_matrix = 0;
@@ -1863,9 +1867,16 @@ void LayerMovementProblem<dim>::run()
         layers_solutions[i]->reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
 
         layers[i]->set_boundary_conditions(boundary_values_id_LS, boundary_values_LS);
-        //TODO make this dim independent
+        if(dim==3){
         layers[i]->initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Wxy,
                                      locally_relevant_solution_Wxy, locally_relevant_solution_F);
+          }
+        else
+          {
+            layers[i]->initial_condition(locally_relevant_solution_LS_0, locally_relevant_solution_Wxy,
+                                        locally_relevant_solution_F);
+
+          }
     }
 
     //display_vectors();
@@ -1890,8 +1901,14 @@ void LayerMovementProblem<dim>::run()
             TimerOutput::Scope t(computing_timer, "LS");
             for(int i=0; i<n_active_layers; ++i)
             {
-                //TODO make this dim independent
+
+                if(dim==3){
                 layers[i]->set_velocity(locally_relevant_solution_Wxy,locally_relevant_solution_Wxy, locally_relevant_solution_F);
+                  }
+                else{
+                  layers[i]->set_velocity(locally_relevant_solution_Wxy, locally_relevant_solution_F);
+                  }
+
                 layers[i]->nth_time_step();
                 layers[i]->get_unp1(locally_relevant_solution_LS_0);
                 (*layers_solutions[i])=locally_relevant_solution_LS_0;
@@ -1938,7 +1955,7 @@ void LayerMovementProblem<dim>::run()
 
 } // end namespace CPPLS
 
-constexpr int dim {3};
+constexpr int dim {2};
 //constexpr double inflow_rate{3.15e-11};
 
 int main(int argc, char* argv[])
