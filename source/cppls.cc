@@ -1941,12 +1941,12 @@ void LayerMovementProblem<dim>::run()
 //locally_relevant_solution_F = -1*base_sedimentation_rate;
         //    if (get_output && time - (output_number)*output_time > 0)
         //      output_results();
-//        if (timestep_number % output_interval == 0) {
-//            display_vectors();
-//            output_results_pp();
-//        }
+        if (timestep_number % output_interval == 0) {
+            display_vectors();
+            output_results_pp();
+        }
 
-        prepare_next_time_step();
+        //prepare_next_time_step();
     } // end of time loop
 
     //output once at the end
@@ -1956,13 +1956,10 @@ void LayerMovementProblem<dim>::run()
 
 } // end namespace CPPLS
 
-constexpr int dim {2};
-//constexpr double inflow_rate{3.15e-11};
 
 int main(int argc, char* argv[])
 {
-    // One of the new features in C++11 is the <code>chrono</code> component of
-    // the standard library. This gives us an easy way to time the output.
+
     try {
         using namespace dealii;
         using namespace CPPLS;
