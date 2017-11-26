@@ -1974,10 +1974,22 @@ int main(int argc, char* argv[])
         CPPLS::Parameters parameters;
         parameters.read_parameter_file("parameters.prm");
         CPPLS::MaterialData material_data;
+        if (parameters.dimension==2)
         {
-            LayerMovementProblem<dim> run_layers(parameters, material_data);
+            LayerMovementProblem<2> run_layers(parameters, material_data);
             run_layers.run();
         }
+        else if (parameters.dimension==3)
+          {
+            LayerMovementProblem<3> run_layers(parameters, material_data);
+            run_layers.run();
+
+          }
+        else
+          {
+             AssertThrow (false, ExcNotImplemented());
+          }
+
         auto t1 = std::chrono::high_resolution_clock::now();
         if (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0) {
             std::cout << "time elapsed: " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count()
