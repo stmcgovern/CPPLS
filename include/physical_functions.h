@@ -99,7 +99,7 @@ double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) co
 
     double return_value = 10;
     const double time = this->get_time();
-    const double magnify=0.3;
+    const double magnify=0.2;
 
     switch (dim) {
     case 1: {
@@ -124,8 +124,8 @@ double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) co
            }
         else
           {
-          return_value=-1*parameters.base_sedimentation_rate*(1-magnify*std::exp(-1*(left)*(left)/(parameters.box_size))
-                                                              -(2*magnify)*std::exp(-1*(right)*(right)/(parameters.box_size)));
+          return_value=-1*parameters.base_sedimentation_rate*(1-magnify*std::exp(-1*(left)*(left)/(2*parameters.box_size))
+                                                              -(2*magnify)*std::exp(-1*(right)*(right)/(2*parameters.box_size)));
            }
 
 
