@@ -5,7 +5,7 @@ subsection Geometry
 #side length of the square/cube (m)
   set box_size = 1024
 #set the sedimentation rate (m/s) - TODO:individual layer speeds can vary around this
-  set base_sedimentation_rate = 3.19e-11
+  set base_sedimentation_rate = 3.147e-11
 end
 
 subsection Layer Parameters
@@ -36,7 +36,7 @@ subsection Time Step
   set start_time = 0.0
 
 #end time of simulation (s)  - note: 3.147e13 s = 1 Ma
-  set stop_time = 3.147e13
+  set stop_time = 3.1746e13
 #not used
   set n_time_steps = 200
 # for theta scheme for time stepping in P and T,
@@ -55,7 +55,7 @@ end
 
 subsection Output
 #ouput solution vectors every x time steps
-  set output_interval = 100
+  set output_interval = 1
 #not used
   set patch_level = 1
 end

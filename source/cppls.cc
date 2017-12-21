@@ -243,7 +243,7 @@ private:
     void assemble_F();
     void solve_F();
 
-    double estimate_nl_error();
+    bool estimate_nl_error();
     int active_layers_in_time(double time);
 
     void prepare_next_time_step();
@@ -382,7 +382,7 @@ void LayerMovementProblem<dim>::setup_dofs()
 
     //starting_indices=locally_owned_dofs;
 // DoFTools::extract_locally_owned_dofs(dof_handler, starting_indices);
- DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
+// DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
     //Not working in parallel now
     //DoFRenumbering::downstream(dof_handler, direction, true);
 
@@ -705,8 +705,8 @@ void LayerMovementProblem<dim>::assemble_Sigma()
     for (auto cell : filter_iterators(dof_handler.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
 
         fe_values.reinit(cell);
-        fe_values.get_function_values(locally_relevant_solution_P, pressure_at_quad);
-        fe_values.get_function_values(locally_relevant_solution_Sigma, overburden_at_quad);
+        fe_values.get_function_values(temp_locally_relevant_solution_P, pressure_at_quad);
+        fe_values.get_function_values(temp_locally_relevant_solution_Sigma, overburden_at_quad);
 
         // TODO consider moving these properties to the quad point level, not just cell level
         const double initial_porosity = material_data.get_surface_porosity(cell->material_id());
@@ -821,7 +821,7 @@ void LayerMovementProblem<dim>::solve_Sigma()
 
     constraints_Sigma.distribute(completely_distributed_solution);
     //old_locally_relevant_solution_Sigma=locally_relevant_solution_Sigma;
-    locally_relevant_solution_Sigma = completely_distributed_solution;
+    temp_locally_relevant_solution_Sigma = completely_distributed_solution;
 }
 
 template <int dim>
@@ -1099,8 +1099,8 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
         fe_values.reinit(cell);
 
-        fe_values.get_function_values(locally_relevant_solution_P, pressure_at_quad);
-        fe_values.get_function_values(locally_relevant_solution_Sigma, overburden_at_quad);
+        fe_values.get_function_values(temp_locally_relevant_solution_P, pressure_at_quad);
+        fe_values.get_function_values(temp_locally_relevant_solution_Sigma, overburden_at_quad);
         fe_values.get_function_values(old_locally_relevant_solution_P, old_pressure_at_quad);
         fe_values.get_function_values(old_locally_relevant_solution_Sigma, old_overburden_at_quad);
 
@@ -1185,7 +1185,9 @@ void LayerMovementProblem<dim>::forge_system_P()
 
     forcing_terms.reinit(locally_owned_dofs, mpi_communicator);
 
-    old_locally_relevant_solution_P = locally_relevant_solution_P;
+    //the statement below is now placed into the prepare_next_time_step method
+    //old_locally_relevant_solution_P = locally_relevant_solution_P;
+
     mass_matrix_P.vmult(system_rhs_P, old_locally_relevant_solution_P);
 
     laplace_matrix_P.vmult(tmp, old_locally_relevant_solution_P);
@@ -1228,7 +1230,7 @@ void LayerMovementProblem<dim>::solve_time_step_P()
 
     constraints_P.distribute(completely_distributed_solution);
 
-    locally_relevant_solution_P = completely_distributed_solution;
+    temp_locally_relevant_solution_P = completely_distributed_solution;
 }
 
 template <int dim>
@@ -1396,11 +1398,23 @@ void LayerMovementProblem<dim>::solve_time_step_T()
     locally_relevant_solution_T = completely_distributed_solution;
 }
 
+
+template <int dim>
+bool LayerMovementProblem<dim>::estimate_nl_error()
+{
+  const double tolerance = 10e-4; //parameters.
+  double residual = 1;
+
+}
+
+
+
 template <int dim>
 void LayerMovementProblem<dim>::prepare_next_time_step()
 {
-    //  old_porosity = porosity;
-    //  old_overburden = overburden;
+    old_locally_relevant_solution_P=locally_relevant_solution_P;
+    old_locally_relevant_solution_Sigma=locally_relevant_solution_Sigma;
+    old_locally_relevant_solution_T=locally_relevant_solution_T;
 }
 
 template <int dim>
@@ -1920,14 +1934,53 @@ void LayerMovementProblem<dim>::run()
         // set material ids based on locally_relevant_solution_LS
         setup_material_configuration(); // TODO: move away from cell id to values at quad points
 
-        // First get an overburden solution with the current porosity
-        assemble_Sigma();
-        solve_Sigma();    // generates l_r_s_Sigma
 
-        // pressure solution
-        assemble_matrices_P();
-        forge_system_P();
-        solve_time_step_P(); // temp_loc_r_s_P
+
+        //prepare for nonlinear Picard iteration
+        temp_locally_relevant_solution_Sigma=locally_relevant_solution_Sigma;
+        temp_locally_relevant_solution_P=locally_relevant_solution_P;
+        bool is_converged=false;
+        int nl_loop_count=0;
+        int maxiter{20};
+        double tolerance =1e-2;
+        double deviation{0};
+
+
+        while (is_converged==false && nl_loop_count<maxiter)
+        {
+            old_temp_locally_relevant_solution_P=temp_locally_relevant_solution_P;
+            assemble_Sigma();
+            solve_Sigma();    // generates temp_l_r_s_Sigma
+
+            // pressure solution
+            assemble_matrices_P();
+            forge_system_P();
+            solve_time_step_P(); // temp_loc_r_s_P
+
+            //is_converged=estimate_nl_error();//l
+            deviation=(temp_locally_relevant_solution_P.l2_norm()
+                       - old_temp_locally_relevant_solution_P.l2_norm() )
+                       /  temp_locally_relevant_solution_P.l2_norm();
+            pcout<<"deviation: "<<deviation<<std::endl;
+
+            if(deviation<tolerance)
+              {
+                is_converged=true;
+              }
+            nl_loop_count++;
+
+
+          }//end nonlinear loop
+        if(nl_loop_count>maxiter)
+          {
+            pcout<<"not converged";
+
+          }
+        locally_relevant_solution_P=temp_locally_relevant_solution_P;
+        locally_relevant_solution_Sigma=temp_locally_relevant_solution_Sigma;
+
+
+
 
         // Solve temperature (coefficients depend on porosity, and TODO: should influence viscosity)
 
@@ -1946,7 +1999,7 @@ void LayerMovementProblem<dim>::run()
             output_results_pp();
         }
 
-        //prepare_next_time_step();
+        prepare_next_time_step();
     } // end of time loop
 
     //output once at the end

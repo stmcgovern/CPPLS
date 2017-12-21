@@ -119,14 +119,15 @@ double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) co
         }
         else if(time<(2*parameters.stop_time/3))
           {
-          return_value=-1*parameters.base_sedimentation_rate*(1+magnify*std::exp(-1*(mid)*(mid)/(2*parameters.box_size))
+          return_value=-1*parameters.base_sedimentation_rate*(1+magnify*std::exp(-1*(left)*(left)/(2*parameters.box_size))
                                                               +0.1*magnify*sin(numbers::PI*x/1000));
            }
         else
           {
-          return_value=-1*parameters.base_sedimentation_rate*(1-magnify*std::exp(-1*(left)*(left)/(2*parameters.box_size))
+          return_value=-1*parameters.base_sedimentation_rate*(1+magnify*std::exp(-1*(left)*(left)/(2*parameters.box_size))
                                                               -(2*magnify)*std::exp(-1*(right)*(right)/(2*parameters.box_size)));
            }
+        return_value=-1*parameters.base_sedimentation_rate;
 
 
         //return std::abs(sin(x)); return (-3.15e-11*(1+0.1*std::abs(sin(x))));
@@ -247,7 +248,9 @@ double Initial_LS<dim>::value(const Point<dim>& p, const unsigned int) const
         double y = p[1];
         // std::cout<<std::tanh((y- 0.9)/sharpness)<<" "<<std::endl;
 
-        return_value = 0.5*(1+ std::tanh((y - (box_size_z - (box_size_z / 100))) / sharpness));
+        //return_value = 0.5*(1+ std::tanh((y - (box_size_z - (box_size_z / 100))) / sharpness));
+        return_value = 0.5*(1+ std::tanh((y - (box_size_z )) / sharpness));
+
         Assert (return_value <= 1 ,ExcInternalError());
         Assert (return_value >= -1 ,ExcInternalError());
 
