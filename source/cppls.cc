@@ -382,7 +382,7 @@ void LayerMovementProblem<dim>::setup_dofs()
 
     //starting_indices=locally_owned_dofs;
 // DoFTools::extract_locally_owned_dofs(dof_handler, starting_indices);
-// DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
+DoFRenumbering::Cuthill_McKee(dof_handler,false, true, starting_indices);
     //Not working in parallel now
     //DoFRenumbering::downstream(dof_handler, direction, true);
 
