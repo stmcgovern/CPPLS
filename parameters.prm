@@ -3,9 +3,9 @@ subsection Geometry
 #spatial dimension (2,3)
   set dimension = 2
 #side length of the square/cube (m)
-  set box_size = 1024
+  set box_size = 1000
 #set the sedimentation rate (m/s) - TODO:individual layer speeds can vary around this
-  set base_sedimentation_rate = 3.147e-11
+  set base_sedimentation_rate = 3.1746e-11
 end
 
 subsection Layer Parameters
@@ -35,15 +35,15 @@ subsection Time Step
 #start time of simulation (s)
   set start_time = 0.0
 
-#end time of simulation (s)  - note: 3.147e13 s = 1 Ma
-  set stop_time = 3.1746e13
+#end time of simulation (s)  - note: 3.15576e13 s = 1 Ma
+  set stop_time = 3.15576e13
 #not used
   set n_time_steps = 200
 # for theta scheme for time stepping in P and T,
 # 1/2 -> Crank-Nicolson,  1 -> implicit Euler, 0 -> Explicit Euler
   set theta = 0.5
 # stability condition for the (SSP3) explicit time stepping in LS
-  set cfl = 0.5
+  set cfl = 1
 end
 
 #subsection Nonlinear Solver Picard

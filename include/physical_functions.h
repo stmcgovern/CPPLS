@@ -15,11 +15,28 @@ using namespace dealii;
 double porosity(const double pressure, const double overburden, const double initial_porosity,
                 const double compaction_coefficient, const double hydrostatic)
 {
-    return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
+    //below is LINEAR IN VOID RATIO
+     const double init_void_ratio = initial_porosity/(1-initial_porosity);
+     const double computed_void_ratio = init_void_ratio - compaction_coefficient*(overburden - pressure - hydrostatic);
+     const double VES=overburden - pressure - hydrostatic;
+     std::cout<<VES<<" ";
+    // Assert(init_void_ratio >= computed_void_ratio, ExcInternalError());
+     return (computed_void_ratio/(1+computed_void_ratio));
+
+     //uncomment below for Athy's law in terms of POROSITY
+    //return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
+
 }
 double permeability(const double porosity, const double initial_permeability, const double initial_porosity)
 {
-    return (initial_permeability * (1 - initial_porosity) / (1 - porosity));
+    //below is linear in VOID RATIO
+    const double init_void_ratio = initial_porosity/(1-initial_porosity);
+    const double void_ratio = (porosity/ (1-porosity));
+    return (initial_permeability* (1+ void_ratio)/(1+init_void_ratio));
+
+
+    //uncomment below for the linear in POROSITY
+    //return (initial_permeability * (1 - initial_porosity) / (1 - porosity));
 }
 
 // These functions are definitional
@@ -127,6 +144,7 @@ double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) co
           return_value=-1*parameters.base_sedimentation_rate*(1+magnify*std::exp(-1*(left)*(left)/(2*parameters.box_size))
                                                               -(2*magnify)*std::exp(-1*(right)*(right)/(2*parameters.box_size)));
            }
+        //use just the constant value
         return_value=-1*parameters.base_sedimentation_rate;
 
 

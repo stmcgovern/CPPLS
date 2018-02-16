@@ -250,14 +250,16 @@ private:
 
     void output_vectors_LS();
     void output_vectors();
+    void output_results_pp();
 
     void display_vectors()
     {
         output_vectors_LS();
         output_vectors();
+        output_results_pp();
         output_number++;
     }
-    void output_results_pp();
+
 
     class Postprocessor;
 
