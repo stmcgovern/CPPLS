@@ -741,7 +741,7 @@ void LayerMovementProblem<dim>::assemble_Sigma()
             rhs_at_quad[q_point] = 9.81 * rho_b;
             if(material_id==0)
               {
-                rhs_at_quad[q_point] =1000;
+                rhs_at_quad[q_point] =0;
               }
 
 
@@ -833,6 +833,8 @@ void LayerMovementProblem<dim>::solve_Sigma()
     constraints_Sigma.distribute(completely_distributed_solution);
     //old_locally_relevant_solution_Sigma=locally_relevant_solution_Sigma;
     temp_locally_relevant_solution_Sigma = completely_distributed_solution;
+
+
 }
 
 template <int dim>
@@ -929,7 +931,7 @@ void LayerMovementProblem<dim>::assemble_F()
 
 
 
-            Assert(dphidt <= 0, ExcInternalError());
+            Assert(dphidt < 0.1, ExcInternalError());
 
             rhs_at_quad[q_point] = -1*dphidt / (1 - phi);
 
@@ -1945,6 +1947,8 @@ void LayerMovementProblem<dim>::run()
 
         // Level set computation
         // original level_set_solver.set_velocity(locally_relevant_solution_u, locally_relevant_solution_v);
+        for(int h=0;h<2;++h)
+          {
         n_active_layers=active_layers_in_time(time);
         {
             //TimerOutput::Scope t(computing_timer, "LS");
@@ -1964,6 +1968,7 @@ void LayerMovementProblem<dim>::run()
 
             }
         }
+          }
 
         // set material ids based on locally_relevant_solution_LS
         setup_material_configuration(); // TODO: move away from cell id to values at quad points
