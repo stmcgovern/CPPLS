@@ -704,16 +704,19 @@ void LayerMovementProblem<dim>::assemble_Sigma()
     rhs_Sigma = 0;
     system_matrix_Sigma = 0;
 
+    int material_id;
+
     for (auto cell : filter_iterators(dof_handler.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
 
+        material_id=cell->material_id();
         fe_values.reinit(cell);
         fe_values.get_function_values(temp_locally_relevant_solution_P, pressure_at_quad);
         fe_values.get_function_values(temp_locally_relevant_solution_Sigma, overburden_at_quad);
 
         // TODO consider moving these properties to the quad point level, not just cell level
-        const double initial_porosity = material_data.get_surface_porosity(cell->material_id());
-        const double compaction_coefficient = material_data.get_compressibility_coefficient(cell->material_id());
-        const double rock_density = material_data.get_solid_density(cell->material_id());
+        const double initial_porosity = material_data.get_surface_porosity(material_id);
+        const double compaction_coefficient = material_data.get_compressibility_coefficient(material_id);
+        const double rock_density = material_data.get_solid_density(material_id);
 
          sedRate.value_list(fe_values.get_quadrature_points(), sedimentation_rate, 1);
          advection_field.value_list(fe_values.get_quadrature_points(), advection_directions);
@@ -728,7 +731,7 @@ void LayerMovementProblem<dim>::assemble_Sigma()
                                        (parameters.box_size - point_for_depth[dim-1]);
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                        compaction_coefficient, hydrostatic);
-            //const double phi = 0.5;
+
             Assert(0 < hydrostatic, ExcInternalError());
             Assert(0 <= phi, ExcInternalError());
             Assert(phi < 1, ExcInternalError());
@@ -736,6 +739,12 @@ void LayerMovementProblem<dim>::assemble_Sigma()
             const double rho_b = bulkdensity(phi, material_data.fluid_density, rock_density);
 
             rhs_at_quad[q_point] = 9.81 * rho_b;
+            if(material_id==0)
+              {
+                rhs_at_quad[q_point] =1000;
+              }
+
+
 
 
             //this should point "down"
@@ -869,7 +878,11 @@ void LayerMovementProblem<dim>::assemble_F()
     rhs_F = 0;
     system_matrix_F = 0;
 
+    int material_id;
+
     for (auto cell : filter_iterators(dof_handler.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
+
+        material_id=cell->material_id();
 
         fe_values.reinit(cell);
 
@@ -879,10 +892,11 @@ void LayerMovementProblem<dim>::assemble_F()
         fe_values.get_function_values(old_locally_relevant_solution_Sigma, old_overburden_at_quad);
 
         // TODO consider moving these properties to the quad point level, not just cell level
-        const double initial_porosity = material_data.get_surface_porosity(cell->material_id());
-        const double compaction_coefficient = material_data.get_compressibility_coefficient(cell->material_id());
+        const double initial_porosity = material_data.get_surface_porosity(material_id);
+        const double compaction_coefficient = material_data.get_compressibility_coefficient(material_id);
         advection_field.value_list(fe_values.get_quadrature_points(), advection_directions);
         sedRate.value_list(fe_values.get_quadrature_points(), sedimentation_rate, 1);
+
 
         cell_rhs = 0;
         cell_matrix = 0;
@@ -905,7 +919,14 @@ void LayerMovementProblem<dim>::assemble_F()
             Assert(0 <= old_phi, ExcInternalError());
             Assert(old_phi < 1, ExcInternalError());
 
-            const double dphidt = (phi - old_phi) / time_step;
+             double dphidt = (phi - old_phi) / time_step;
+
+            if(material_id==0)
+              {
+                dphidt = 0;
+
+              }
+
 
 
             Assert(dphidt <= 0, ExcInternalError());
@@ -1126,7 +1147,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 //            abort();
 //          }
             Assert( -0.1 <pressure_at_quad[q_point], ExcInternalError());
-            Assert(0 < overburden_at_quad[q_point], ExcInternalError());
+            Assert(-0.1 <overburden_at_quad[q_point], ExcInternalError());
 
             point_for_depth = fe_values.quadrature_point(q_point);
             const double hydrostatic = 9.81 * material_data.fluid_density *
@@ -1143,19 +1164,20 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             Assert(0 <= perm_k, ExcInternalError());
             // Assert(perm_k <= initial_permeability, ExcInternalError());
 
-            const double old_phi = porosity(old_pressure_at_quad[q_point], old_overburden_at_quad[q_point], initial_porosity,
-                                            compaction_coefficient, hydrostatic);
-            Assert(0 <= old_phi, ExcInternalError());
-            Assert(old_phi < 1, ExcInternalError());
+//            const double old_phi = porosity(old_pressure_at_quad[q_point], old_overburden_at_quad[q_point], initial_porosity,
+//                                            compaction_coefficient, hydrostatic);
+//            Assert(0 <= old_phi, ExcInternalError());
+//            Assert(old_phi < 1, ExcInternalError());
 
-            const double dphidt = (phi - old_phi) / time_step;
+//            const double dphidt = (phi - old_phi) / time_step;
 
             //Assert(dphidt <= 0, ExcInternalError());
 
-            const double diff_coeff_at_quad = (perm_k / material_data.fluid_viscosity);
-            const double rhs_coeff = material_data.get_compressibility_coefficient(cell->material_id()) * phi / (1 - phi);
-            const double rhs_at_quad =(overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
-                                       (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]);
+            const double diff_coeff_at_quad = (perm_k / (material_data.fluid_viscosity * compressibility *(1-phi)) );
+            const double rhs_coeff = 1;
+            const double rhs_at_quad = (9.8 * (2220- material_data.fluid_density)* -1*sedimentation_rates[q_point]);
+//                (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
+//                                       (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]);
 
             //Assert (0 <= rhs_at_quad, ExcInternalError());
 
@@ -1946,7 +1968,7 @@ void LayerMovementProblem<dim>::run()
         // set material ids based on locally_relevant_solution_LS
         setup_material_configuration(); // TODO: move away from cell id to values at quad points
 
-
+        //output_results_pp();
 
         //prepare for nonlinear Picard iteration
         temp_locally_relevant_solution_Sigma=locally_relevant_solution_Sigma;
