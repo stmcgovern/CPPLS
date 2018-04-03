@@ -1177,9 +1177,9 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
             const double diff_coeff_at_quad = (perm_k / (material_data.fluid_viscosity * compressibility *(1-phi)) );
             const double rhs_coeff = 1;
-            const double rhs_at_quad = (9.8 * (2220- material_data.fluid_density)* -1*sedimentation_rates[q_point]);
-//                (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
-//                                       (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]);
+            const double rhs_at_quad = //(9.8 * (2220- material_data.fluid_density)* -1*sedimentation_rates[q_point]);
+               (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
+                                     (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]);
 
             //Assert (0 <= rhs_at_quad, ExcInternalError());
 
@@ -2002,7 +2002,7 @@ void LayerMovementProblem<dim>::run()
                        /  temp_locally_relevant_solution_P.l2_norm();
             pcout<<"deviation: "<<deviation<<std::endl;
 
-            if(deviation<tolerance)
+            if(std::abs(deviation)<tolerance)
               {
                 is_converged=true;
               }
@@ -2035,7 +2035,7 @@ void LayerMovementProblem<dim>::run()
         //      output_results();
         if (timestep_number % output_interval == 0) {
             display_vectors();
-            output_results_pp();
+
         }
 
         prepare_next_time_step();
