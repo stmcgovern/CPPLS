@@ -1094,10 +1094,14 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
     std::vector<double> old_pressure_at_quad(n_q_points);
     std::vector<double> sedimentation_rates(n_q_points);
 
+    int material_id;
+
     for (auto cell : filter_iterators(dof_handler.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
         cell_laplace_matrix = 0;
         cell_mass_matrix = 0;
         cell_rhs = 0;
+
+        material_id=cell->material_id();
 
         fe_values.reinit(cell);
 
@@ -1107,10 +1111,14 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
         fe_values.get_function_values(old_locally_relevant_solution_Sigma, old_overburden_at_quad);
 
         // TODO consider moving these properties to the quad point level, not just cell level
-        const double initial_porosity = material_data.get_surface_porosity(cell->material_id());
-        const double compaction_coefficient = material_data.get_compressibility_coefficient(cell->material_id());
-        const double initial_permeability = material_data.get_surface_permeability(cell->material_id());
+        const double initial_porosity = material_data.get_surface_porosity(material_id);
+        const double compaction_coefficient = material_data.get_compressibility_coefficient(material_id);
+        const double initial_permeability = material_data.get_surface_permeability(material_id);
         sedRate.value_list(fe_values.get_quadrature_points(), sedimentation_rates, 1);
+
+
+        double compressibility = material_data.get_compressibility_coefficient(material_id);
+
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
 //        if(0 <= pressure_at_quad[q_point]){
@@ -1132,7 +1140,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
             const double perm_k = permeability(phi, initial_permeability, initial_porosity);
             // pcout<<"perm_k"<<perm_k<<"init<<"<< initial_permeability<<std::endl;
-            Assert(0 < perm_k, ExcInternalError());
+            Assert(0 <= perm_k, ExcInternalError());
             // Assert(perm_k <= initial_permeability, ExcInternalError());
 
             const double old_phi = porosity(old_pressure_at_quad[q_point], old_overburden_at_quad[q_point], initial_porosity,
@@ -1201,12 +1209,13 @@ void LayerMovementProblem<dim>::forge_system_P()
     forcing_terms.add(time_step * (1 - theta), old_rhs_P);
 
     system_rhs_P += forcing_terms;
-    // system_matrix.compress (VectorOperation::add);
+    system_rhs_P.compress (VectorOperation::add);
 
     system_matrix_P.copy_from(mass_matrix_P);
     // system_matrix.compress (VectorOperation::add);
 
-    system_matrix_P.add(laplace_matrix_P, time_step * (1 - theta));
+    system_matrix_P.add(time_step * theta, laplace_matrix_P);
+    system_matrix_P.compress(VectorOperation::add);
 }
 
 template <int dim>
@@ -1417,6 +1426,7 @@ void LayerMovementProblem<dim>::prepare_next_time_step()
     old_locally_relevant_solution_P=locally_relevant_solution_P;
     old_locally_relevant_solution_Sigma=locally_relevant_solution_Sigma;
     old_locally_relevant_solution_T=locally_relevant_solution_T;
+    old_rhs_P=rhs_P;
 }
 
 template <int dim>

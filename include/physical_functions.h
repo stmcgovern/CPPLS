@@ -19,7 +19,7 @@ double porosity(const double pressure, const double overburden, const double ini
      const double init_void_ratio = initial_porosity/(1-initial_porosity);
      const double computed_void_ratio = init_void_ratio - compaction_coefficient*(overburden - pressure - hydrostatic);
      const double VES=overburden - pressure - hydrostatic;
-     std::cout<<VES<<" ";
+    // std::cout<<VES<<" ";
     // Assert(init_void_ratio >= computed_void_ratio, ExcInternalError());
      return (computed_void_ratio/(1+computed_void_ratio));
 
