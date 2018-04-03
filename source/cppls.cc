@@ -1178,7 +1178,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             const double diff_coeff_at_quad = (perm_k / (material_data.fluid_viscosity * compressibility *(1-phi)) );
             const double rhs_coeff = 1;
             const double rhs_at_quad = //(9.8 * (2220- material_data.fluid_density)* -1*sedimentation_rates[q_point]);
-               (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / time_step -
+               (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / (2* time_step) -
                                      (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]);
 
             //Assert (0 <= rhs_at_quad, ExcInternalError());
@@ -1226,11 +1226,11 @@ void LayerMovementProblem<dim>::forge_system_P()
 
     laplace_matrix_P.vmult(tmp, old_locally_relevant_solution_P);
     //  pcout << "laplace symmetric: " << laplace_matrix.is_symmetric()<<std::endl;
-    system_rhs_P.add(-(1 - theta) * time_step, tmp);
+    system_rhs_P.add(-(1 - theta) * time_step*2, tmp);
 
-    forcing_terms.add(time_step * theta, rhs_P);
+    forcing_terms.add(2*time_step * theta, rhs_P);
 
-    forcing_terms.add(time_step * (1 - theta), old_rhs_P);
+    forcing_terms.add(2* time_step * (1 - theta), old_rhs_P);
 
     system_rhs_P += forcing_terms;
     system_rhs_P.compress (VectorOperation::add);
@@ -1238,7 +1238,7 @@ void LayerMovementProblem<dim>::forge_system_P()
     system_matrix_P.copy_from(mass_matrix_P);
     // system_matrix.compress (VectorOperation::add);
 
-    system_matrix_P.add(time_step * theta, laplace_matrix_P);
+    system_matrix_P.add(2*time_step * theta, laplace_matrix_P);
     system_matrix_P.compress(VectorOperation::add);
 }
 
