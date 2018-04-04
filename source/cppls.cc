@@ -1140,7 +1140,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
         sedRate.value_list(fe_values.get_quadrature_points(), sedimentation_rates, 1);
 
 
-        double compressibility = material_data.get_compressibility_coefficient(material_id);
+        //double compressibility = material_data.get_compressibility_coefficient(material_id);
 
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
@@ -1175,7 +1175,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
             //Assert(dphidt <= 0, ExcInternalError());
 
-            const double diff_coeff_at_quad = (perm_k / (material_data.fluid_viscosity * compressibility *(1-phi)) );
+            const double diff_coeff_at_quad = (perm_k / (material_data.fluid_viscosity * compaction_coefficient *(1-phi)) );
             const double rhs_coeff = 1;
             const double rhs_at_quad = //(9.8 * (2220- material_data.fluid_density)* -1*sedimentation_rates[q_point]);
                (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / (2* time_step) -
