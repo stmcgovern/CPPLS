@@ -13,8 +13,12 @@ using namespace dealii;
 // Porosity and permeability are "empirical" relations that can be changed here (e.g., Kozeny-Carman or linear
 // porosity,etc.)
 double porosity(const double pressure, const double overburden, const double initial_porosity,
-                const double compaction_coefficient, const double hydrostatic)
+                const double compaction_coefficient, const double hydrostatic, const int material)
 {
+  if(material==0)
+    {
+      return 0;
+    }
     //below is LINEAR IN VOID RATIO
      const double init_void_ratio = initial_porosity/(1-initial_porosity);
      const double computed_void_ratio = init_void_ratio - compaction_coefficient*(overburden - pressure - hydrostatic);
@@ -27,8 +31,12 @@ double porosity(const double pressure, const double overburden, const double ini
     //return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
 
 }
-double permeability(const double porosity, const double initial_permeability, const double initial_porosity)
+double permeability(const double porosity, const double initial_permeability, const double initial_porosity, const int material)
 {
+  if(material==0)
+    {
+      return initial_permeability;
+    }
     //below is linear in VOID RATIO
     const double init_void_ratio = initial_porosity/(1-initial_porosity);
     const double void_ratio = (porosity/ (1-porosity));
@@ -46,8 +54,9 @@ double bulkdensity(const double porosity, const double fluid_density, const doub
     return (porosity * fluid_density + (1 - porosity) * solid_density);
 }
 // Note that our "pressure" variable is the OVERPRESSURE, not the pore pressure
-double VES(const double overburden, const double pressure, const double hydrostatic)
+double VES(const double overburden, const double pressure, const double hydrostatic, const int material)
 {
+  if(material==0){return 0;}
     return (overburden - pressure - hydrostatic);
 }
 
