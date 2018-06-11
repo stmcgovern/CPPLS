@@ -1,12 +1,24 @@
-subsection Geometry
+subsection General
+#compute the temperature field, true/false
+  set compute_temperature = true
+end
 
+
+subsection Geometry
 #spatial dimension (2,3)
   set dimension = 2
+#square cube true/false
+  set cubic = true
 #side length of the square/cube (m)
-  set box_size = 1000
+  set box_size = 1024
+#if rectangular (x,y,z) dimensions - y ignored in 2D
+  set x_length = 1024
+  set y_length = 1024
+  set z_length = 1024
 #set the sedimentation rate (m/s) - TODO:individual layer speeds can vary around this
   set base_sedimentation_rate = 3.1746e-11
 end
+
 
 subsection Layer Parameters
 #number of sedimentary layers, not including basement
@@ -22,7 +34,6 @@ subsection Layer Parameters
 end
 
 subsection Finite Element
-
 #number of initial global refinements - note: (2^dim)^initial_refinement_level = n_cells
   set initial_refinement_level = 4
 #finite element degree of the physical quantity dof_handler, FE_Q
@@ -34,11 +45,8 @@ end
 subsection Time Step
 #start time of simulation (s)
   set start_time = 0.0
-
-#end time of simulation (s)  - note: 3.15576e13 s = 1 Ma
-  set stop_time = 3.15576e13
-#not used
-  set n_time_steps = 200
+#end time of simulation (s)  - note: 3.147e13 s = 1 Ma
+  set stop_time = 3.147e13
 # for theta scheme for time stepping in P and T,
 # 1/2 -> Crank-Nicolson,  1 -> implicit Euler, 0 -> Explicit Euler
   set theta = 1
@@ -46,16 +54,15 @@ subsection Time Step
   set cfl = 0.5
 end
 
-#subsection Nonlinear Solver Picard
+subsection Nonlinear Solver Picard
 # solution tolerance
-#  set nl_tol = 1e-8
+  set nl_tol = 1e-8
 # maximum iterations
-#  set maxiter = 20
+  set maxiter = 20
+end
 
 
 subsection Output
 #ouput solution vectors every x time steps
-  set output_interval = 1
-#not used
-  set patch_level = 1
+  set output_interval = 100
 end

@@ -7,6 +7,16 @@ namespace CPPLS
 {
 void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler)
 {
+  parameter_handler.enter_subsection("General");
+  {
+    parameter_handler.declare_entry
+    ("compute_temperature", "true", Patterns::Bool(), "Whether or not "
+     "to calculate the diffusive temperature field");
+
+  }
+    parameter_handler.leave_subsection();
+
+
     parameter_handler.enter_subsection("Geometry");
     {
         parameter_handler.declare_entry
@@ -14,7 +24,17 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
         parameter_handler.declare_entry
         ("base_sedimentation_rate", "3.147e-11", Patterns::Double(0, 1), "base sedimentation rate");
         parameter_handler.declare_entry
-        ("box_size", "1000",Patterns::Integer(2,1000000), "size of square domain" );
+        ("box_size", "1000",Patterns::Double(2,1000000), "size of square domain" );
+        parameter_handler.declare_entry
+        ("x_length", "1000",Patterns::Double(2,1000000), "size of x length" );
+        parameter_handler.declare_entry
+        ("y_length", "1000",Patterns::Double(2,1000000), "size of y length" );
+        parameter_handler.declare_entry
+        ("z_length", "1000",Patterns::Double(2,1000000), "size of z length" );
+        parameter_handler.declare_entry
+        ("cubic", "true", Patterns::Bool(), "Whether or not "
+         "domain is a cube/square");
+
 
     }
     parameter_handler.leave_subsection();
@@ -53,8 +73,7 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
         ("start_time", "0.0", Patterns::Double(0.0), "Start time.");
         parameter_handler.declare_entry
         ("stop_time", "1.0", Patterns::Double(1.0), "Stop time.");
-        parameter_handler.declare_entry
-        ("n_time_steps", "1", Patterns::Integer(1), "Number of time steps.");
+
         parameter_handler.declare_entry
         ("theta", "0.5",Patterns::Double(0.5), "Theta-Scheme value 0 explicit, 1/2 CN, 1 implicit" );
         parameter_handler.declare_entry
@@ -62,13 +81,25 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
     }
     parameter_handler.leave_subsection();
 
+
+
+    parameter_handler.enter_subsection("Nonlinear Solver Picard");
+    {
+      parameter_handler.declare_entry
+      ("nl_tol","1e-8", Patterns::Double(0,1), "nonlinear loop convergence tolerance");
+      parameter_handler.declare_entry
+      ("maxiter","20", Patterns::Integer(1,30), "maximum nonlinear iterations");
+    }
+    parameter_handler.leave_subsection();
+
+
+
     parameter_handler.enter_subsection("Output");
     {
 
         parameter_handler.declare_entry
         ("output_interval", "10", Patterns::Integer(1), "Output interval.");
-        parameter_handler.declare_entry
-        ("patch_level", "2", Patterns::Integer(0), "Patch level.");
+
     }
     parameter_handler.leave_subsection();
 }
@@ -81,20 +112,30 @@ void Parameters::read_parameter_file(const std::string &file_name)
         configure_parameter_handler(parameter_handler);
         parameter_handler.parse_input(file);
     }
+    parameter_handler.enter_subsection("General");
+    {
+      compute_temperature = parameter_handler.get_bool("compute_temperature");
+    }
+    parameter_handler.leave_subsection();
 
     parameter_handler.enter_subsection("Geometry");
     {
         dimension = parameter_handler.get_integer("dimension");
-        box_size = parameter_handler.get_double("box_size");
         base_sedimentation_rate = parameter_handler.get_double("base_sedimentation_rate");
+        box_size = parameter_handler.get_double("box_size");
+        x_length = parameter_handler.get_double("x_length");
+        y_length = parameter_handler.get_double("y_length");
+        z_length = parameter_handler.get_double("z_length");
+        cubic = parameter_handler.get_bool("cubic");
+
     }
     parameter_handler.leave_subsection();
 
     parameter_handler.enter_subsection("Layer Parameters");
     {
-        n_layers = parameter_handler.get_double("n_layers");
+        n_layers = parameter_handler.get_integer("n_layers");
 
-        time_dependent_forcing = parameter_handler.get_bool("time_dependent_forcing");
+
     }
     parameter_handler.leave_subsection();
 
@@ -113,9 +154,17 @@ void Parameters::read_parameter_file(const std::string &file_name)
 
         start_time = parameter_handler.get_double("start_time");
         stop_time = parameter_handler.get_double("stop_time");
-        n_time_steps = parameter_handler.get_integer("n_time_steps");
+
         theta = parameter_handler.get_double("theta");
         cfl = parameter_handler.get_double("cfl");
+    }
+    parameter_handler.leave_subsection();
+
+    parameter_handler.enter_subsection("Nonlinear Solver Picard");
+    {
+      nl_tol=parameter_handler.get_double("nl_tol");
+      maxiter= parameter_handler.get_integer("maxiter");
+
     }
     parameter_handler.leave_subsection();
 
@@ -123,7 +172,7 @@ void Parameters::read_parameter_file(const std::string &file_name)
     {
 
         output_interval = parameter_handler.get_integer("output_interval");
-        patch_level = parameter_handler.get_integer("patch_level");
+
     }
     parameter_handler.leave_subsection();
 }

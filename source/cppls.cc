@@ -286,7 +286,7 @@ LayerMovementProblem<dim>::LayerMovementProblem(const CPPLS::Parameters& paramet
 , dof_handler_LS(triangulation)
 , pcout(std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator) == 0))
 , computing_timer(mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times)
-, time_step((parameters.stop_time - parameters.start_time) / parameters.n_time_steps)
+, time_step{0}
 , current_time {0}
 , final_time {parameters.stop_time}
 , output_number {0}
@@ -308,8 +308,20 @@ template <int dim>
 void LayerMovementProblem<dim>::setup_geometry()
 {
     TimerOutput::Scope t(computing_timer, "setup_geometry");
-    GridGenerator::hyper_cube(triangulation, 0, parameters.box_size, true);
+    if (parameters.cubic)
+    {
+        GridGenerator::hyper_cube(triangulation, 0, parameters.box_size, true);
+    }
+    else{
     // GridGenerator::subdivided_hyper_rectangle(triangulation, 0, parameters.box_size);
+    //TODO for weak scaling, want to have for same depth different basin widths (and breadths)
+    //get a rectangle with x_length in multiples of the z_length,(3d y too)
+    // want cell structure(i.e. location of vertices to be same, just more - "grown basin")
+    //GridGenerator::hyper_rectangle()
+    }
+
+
+
     triangulation.refine_global(parameters.initial_refinement_level);
     // print_mesh_info(triangulation, "my_grid");
     for (auto cell : filter_iterators(triangulation.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
@@ -1876,6 +1888,10 @@ void LayerMovementProblem<dim>::run()
 
     initial_conditions();
     const unsigned int output_interval= parameters.output_interval;
+    const bool compute_temperature = parameters.compute_temperature;
+
+    const unsigned int maxiter = parameters.maxiter;
+    const double nl_tol = parameters.nl_tol;
 
 
     //const SedimentationRate SedRate(parameters);
@@ -2023,6 +2039,8 @@ void LayerMovementProblem<dim>::run()
 
 
         // Solve temperature (coefficients depend on porosity, and TODO: should influence viscosity)
+        if (compute_temperature)
+          pcout <<"TEMPTMEEPRPERPERPEPRPERPE";
 
         //    assemble_matrices_T();
         //    forge_system_T();

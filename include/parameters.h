@@ -18,15 +18,16 @@ using namespace dealii;
 class Parameters
 {
 public:
+    bool compute_temperature;
+
     unsigned int dimension;
-    double box_size;
     double base_sedimentation_rate;
+    double box_size;
+    double x_length;
+    double y_length;
+    double z_length;
+    bool cubic;
     unsigned int n_layers;
-
-
-    double diffusion_coefficient;
-    double reaction_coefficient;
-    bool time_dependent_forcing;
 
     unsigned int initial_refinement_level;
     unsigned int degree;
@@ -34,13 +35,13 @@ public:
 
     double start_time;
     double stop_time;
-    unsigned int n_time_steps;
     double theta;
     double cfl;
+    double nl_tol;
+    unsigned int maxiter;
 
 
     unsigned int output_interval;
-    unsigned int patch_level;
 
     void read_parameter_file(const std::string &file_name);
 private:
