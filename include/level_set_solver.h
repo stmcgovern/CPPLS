@@ -116,7 +116,9 @@ public:
                     parallel::distributed::Triangulation<dim> &triangulation,
                     MPI_Comm &mpi_communicator,
                     const DoFHandler<dim>& dof_handler_U,
-                    const DoFHandler<dim>& dof_handler_LS);
+                    const DoFHandler<dim>& dof_handler_LS,
+                     TimerOutput& computing_timer,
+                    const unsigned int interface_number);
     ~LevelSetSolver();
 
 private:
@@ -266,6 +268,11 @@ private:
     std::string ALGORITHM;
     unsigned int TIME_INTEGRATION;
 
+   const unsigned int interface_number;
+   TimerOutput& computing_timer;
+
+
+
     ConditionalOStream                pcout;
 
     std::map<types::global_dof_index, types::global_dof_index> map_from_Q1_to_Q2;
@@ -284,7 +291,9 @@ LevelSetSolver<dim>::LevelSetSolver (const unsigned int degree_LS,
                                      parallel::distributed::Triangulation<dim> &triangulation,
                                      MPI_Comm &mpi_communicator,
                                      const DoFHandler<dim> &dof_handler_U,
-                                     const DoFHandler<dim> &dof_handler_LS)
+                                     const DoFHandler<dim> &dof_handler_LS,
+                                      TimerOutput  &computing_timer,
+                                     const unsigned int interface_number)
     :
     mpi_communicator (mpi_communicator),
     degree_LS(degree_LS),
@@ -299,9 +308,11 @@ LevelSetSolver<dim>::LevelSetSolver (const unsigned int degree_LS,
     verbose(verbose),
     ALGORITHM(ALGORITHM),
     TIME_INTEGRATION(TIME_INTEGRATION),
+    computing_timer(computing_timer),
+    interface_number(interface_number),
     pcout (std::cout,(Utilities::MPI::this_mpi_process(mpi_communicator)== 0))
 {
-    pcout << "********** LEVEL SET SETUP **********" << std::endl;
+    pcout << "********** LEVEL SET "<<interface_number<<" SETUP **********" << std::endl;
     setup();
 }
 
@@ -1548,6 +1559,10 @@ void LevelSetSolver<dim>::solve(const ConstraintMatrix &constraints,
                                 PETScWrappers::MPI::Vector &completely_distributed_solution,
                                 const PETScWrappers::MPI::Vector &rhs)
 {
+//  computing_timer.TimerOutput( "LS_solve");
+  std::string output_name_here{"Solve"};
+  output_name_here +=Utilities::int_to_string(interface_number);
+  TimerOutput::Scope t(computing_timer, output_name_here);
     // all vectors are NON-GHOSTED
     SolverControl solver_control (dof_handler_LS.n_dofs(), solver_tolerance);
     PETScWrappers::SolverCG solver(solver_control, mpi_communicator);

@@ -1863,7 +1863,7 @@ void LayerMovementProblem<dim>::run()
         layers.emplace_back(new LevelSetSolver<dim>(degree_LS, degree, time_step,
                             cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
                             triangulation, mpi_communicator,
-                            dof_handler, dof_handler_LS));
+                            dof_handler, dof_handler_LS, computing_timer, i));
         layers_solutions.emplace_back(new LA::MPI::Vector);
         layers_solutions[i]->reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
 
@@ -1899,7 +1899,7 @@ void LayerMovementProblem<dim>::run()
         // original level_set_solver.set_velocity(locally_relevant_solution_u, locally_relevant_solution_v);
         n_active_layers=active_layers_in_time(time);
         {
-            TimerOutput::Scope t(computing_timer, "LS");
+            //TimerOutput::Scope t(computing_timer, "LS");
             for(int i=0; i<n_active_layers; ++i)
             {
 
