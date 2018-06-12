@@ -12,7 +12,6 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
     parameter_handler.declare_entry
     ("compute_temperature", "true", Patterns::Bool(), "Whether or not "
      "to calculate the diffusive temperature field");
-
   }
     parameter_handler.leave_subsection();
 
@@ -54,7 +53,6 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
 
     parameter_handler.enter_subsection("Finite Element");
     {
-
         parameter_handler.declare_entry
         ("initial_refinement_level", "1", Patterns::Integer(1),
          "Initial number of levels in the mesh.");
@@ -134,15 +132,12 @@ void Parameters::read_parameter_file(const std::string &file_name)
     parameter_handler.enter_subsection("Layer Parameters");
     {
         n_layers = parameter_handler.get_integer("n_layers");
-
-
     }
     parameter_handler.leave_subsection();
 
 
     parameter_handler.enter_subsection("Finite Element");
     {
-
         initial_refinement_level = parameter_handler.get_integer("initial_refinement_level");
         degree = parameter_handler.get_integer("degree");
         degree_LS = parameter_handler.get_integer("degree_LS");
@@ -151,10 +146,8 @@ void Parameters::read_parameter_file(const std::string &file_name)
 
     parameter_handler.enter_subsection("Time Step");
     {
-
         start_time = parameter_handler.get_double("start_time");
         stop_time = parameter_handler.get_double("stop_time");
-
         theta = parameter_handler.get_double("theta");
         cfl = parameter_handler.get_double("cfl");
     }
