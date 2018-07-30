@@ -48,9 +48,9 @@ public:
     {
         return solid_density[material_id];
     }
-    double get_compressibility_coefficient (const unsigned int material_id) const
+    double get_compaction_coefficient (const unsigned int material_id) const
     {
-        return compressibility_coefficient[material_id];
+        return compaction_coefficient[material_id];
     }
 private:
     const std::vector<double> heat_capacity
@@ -61,8 +61,9 @@ private:
     {1e-19,1e-18,3e-21,4e-21,5e-19, 1e-19,3e-18,4e-18,5e-18, 1e-16,3e-18,4e-18,5e-18}; //m^2
     const std::vector<double> solid_density
     {0,2720,2720,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020}; // kg/m^3
-    const std::vector<double> compressibility_coefficient
-    {5e-8,5e-8,1e-10,1e-10,5e-10, 1e-9,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Pa^-1
+    //This is the compaction coefficient that appears in the compaction law
+    const std::vector<double> compaction_coefficient
+    {1e-200,1e-10,1e-10,1e-10,5e-10, 1e-9,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Pa^-1
 
 };
 }

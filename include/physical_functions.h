@@ -12,8 +12,12 @@ using namespace dealii;
 
 // Porosity and permeability are "empirical" relations that can be changed here (e.g., Kozeny-Carman or linear
 // porosity,etc.)
-double porosity(const double pressure, const double overburden, const double initial_porosity,
-                const double compaction_coefficient, const double hydrostatic, const int material)
+//Compressibility is the derivative of POROSITY with respect to vertical effective stress(VES).
+//The compressibility must correspond to the compaction law used. This is enforced when dealing with linear in the void
+//ratio and with Athy's law, the two choices currently provided
+
+double porosity_athy(const double pressure, const double overburden, const double initial_porosity,
+                const double compaction_coefficient, const double hydrostatic)
 {
   if(material==0)
     {
@@ -31,7 +35,30 @@ double porosity(const double pressure, const double overburden, const double ini
     //return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
 
 }
-double permeability(const double porosity, const double initial_permeability, const double initial_porosity, const int material)
+
+double compressibility_athy(const double compaction_coefficient, const double current_porosity)
+{
+  return (compaction_coefficient* current_porosity);
+}
+//These functions correspond to the choice of a compaction rule LINEAR in the VOID RATIO or LVR
+//This is used for the WANGEN test case
+
+double porosity_LVR(const double pressure, const double overburden, const double initial_porosity,
+                const double compaction_coefficient, const double hydrostatic)
+{
+    return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
+}
+
+double compressibility_LVR(const double compaction_coefficient, const double current_porosity)
+{
+  return (compaction_coefficient* current_porosity);
+}
+
+
+
+
+
+double permeability(const double porosity, const double initial_permeability, const double initial_porosity)
 {
   if(material==0)
     {

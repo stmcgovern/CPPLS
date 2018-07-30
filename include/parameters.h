@@ -5,12 +5,6 @@
 
 #include <string>
 
-// I prefer to use the ParameterHandler class in a slightly different way than
-// usual: The class Parameters creates, uses, and then destroys a
-// ParameterHandler inside the <code>read_parameter_file</code> method instead
-// of keeping it around. This is nice because now all of the run time
-// parameters are contained in a simple class and it can be copied or passed
-// around very easily.
 namespace CPPLS
 {
 using namespace dealii;
@@ -39,6 +33,8 @@ public:
     double cfl;
     double nl_tol;
     unsigned int maxiter;
+
+    bool linear_in_void_ratio;
 
 
     unsigned int output_interval;

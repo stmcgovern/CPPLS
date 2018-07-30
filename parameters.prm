@@ -1,6 +1,8 @@
 subsection General
 #compute the temperature field, true/false
   set compute_temperature = true
+#use linear in void ratio compaction law or if false default to Athy's law
+  set linear_in_void_ratio = true
 end
 
 
@@ -15,8 +17,8 @@ subsection Geometry
   set x_length = 1024
   set y_length = 1024
   set z_length = 1024
-#set the sedimentation rate (m/s) - TODO:individual layer speeds can vary around this
-  set base_sedimentation_rate = 3.1746e-11
+#set the sedimentation rate (m/s)
+  set base_sedimentation_rate = 3.19e-11
 end
 
 

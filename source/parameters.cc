@@ -12,6 +12,11 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
     parameter_handler.declare_entry
     ("compute_temperature", "true", Patterns::Bool(), "Whether or not "
      "to calculate the diffusive temperature field");
+    parameter_handler.declare_entry
+    ("linear_in_void_ratio", "true", Patterns::Bool(), "If true use a compaction law "
+     "that is linear in the void ratio. If false default to Athy's law");
+
+
   }
     parameter_handler.leave_subsection();
 

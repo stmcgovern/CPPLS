@@ -61,6 +61,7 @@ using namespace dealii::LinearAlgebraPETSc;
 
 #include <fstream>
 #include <iostream>
+#include <functional>
 
 #include "level_set_solver.h"
 #include "material_data.h"
@@ -71,7 +72,6 @@ using namespace dealii::LinearAlgebraPETSc;
 namespace CPPLS {
 using namespace dealii;
 
-constexpr double inflow_rate {-3.15e-11};
 
 template <int dim>
 class LayerMovementProblem {
@@ -203,7 +203,29 @@ private:
     int n_layers;
 
 
+    // store functions for porosity, permeability and compressibility
+    std::function
+      <const double(const double pressure, const double overburden, const double initial_porosity,
+      const double compaction_coefficient, const double hydrostatic)>
+        porosity;
+
+    std::function
+      <const double( const double initial_porosity, const double compaction_coefficient)>
+        compressibility;
+
+//    std::function
+//      <const double(const double pressure, const double overburden, const double initial_porosity,
+//      const double compaction_coefficient, const double hydrostatic)>
+//        permeability;
+
+
+
+
+
     // Member Functions
+
+
+    void set_physical_functions();
 
     // create mesh
     void setup_geometry();
@@ -302,6 +324,54 @@ LayerMovementProblem<dim>::~LayerMovementProblem()
     dof_handler_LS.clear();
     triangulation.clear();
 }
+
+
+
+
+
+template <int dim>
+void LayerMovementProblem<dim>::set_physical_functions()
+{
+  //The purpose of this method is to set, according to the parameter file what compaction rule
+  //and associated compressibility, derivative with respect to VES, to use in the assembly methods
+
+  if(parameters.linear_in_void_ratio)
+  {
+      porosity= [](const double pressure, const double overburden, const double initial_porosity,
+                   const double compaction_coefficient, const double hydrostatic)
+                  {
+                    return (initial_porosity * compaction_coefficient);
+                   };
+
+      compressibility = []( const double current_porosity, const double compaction_coefficient)
+         {
+           return (current_porosity * compaction_coefficient);
+          };
+  }
+
+  //Here we default to Athy's law
+  else
+  {
+      porosity= [](const double pressure, const double overburden, const double initial_porosity,
+          const double compaction_coefficient, const double hydrostatic)
+         {
+           return (initial_porosity *
+                   std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
+          };
+
+      compressibility = []( const double current_porosity, const double compaction_coefficient)
+         {
+           return (current_porosity * compaction_coefficient);
+          };
+  }
+  //Permeability as a function of porosity:
+  // We leave the current implementation of the linear in porosity rule hard-coded.
+  //One could here put in other relationships, e.g. Kozeny-Carman, following the approach above
+  //allowing for selection from the input parameter file
+
+}
+
+
 
 //
 template <int dim>
@@ -1322,7 +1392,7 @@ void LayerMovementProblem<dim>::assemble_matrices_T()
 
         // TODO consider moving these properties to the quad point level, not just cell level
         const double initial_porosity = material_data.get_surface_porosity(cell->material_id());
-        const double compaction_coefficient = material_data.get_compressibility_coefficient(cell->material_id());
+        const double compaction_coefficient = material_data.get_compaction_coefficient(cell->material_id());
         const double rock_density = material_data.get_solid_density(cell->material_id());
         const double heat_capacity = material_data.get_heat_capacity(cell->material_id());
 
@@ -1693,7 +1763,7 @@ evaluate_vector_field
 //  const double depth = parameters.box_size- center[1];
 
   const double initial_porosity = material_data.get_surface_porosity(mat_id);
-  const double compaction_coefficient = material_data.get_compressibility_coefficient(mat_id);
+  const double compaction_coefficient = material_data.get_compaction_coefficient(mat_id);
   const double initial_permeability = material_data.get_surface_permeability(mat_id);
 
   for (unsigned int q=0; q<n_quadrature_points; ++q)
@@ -1708,12 +1778,32 @@ evaluate_vector_field
       const double speed_function = inputs.solution_values[q](2);
 
 
+    //TODO: using the std::function in the LayerMovementProblem class is not working within this inherited DataPostProcessor class
+    // so as a work around we branch based on input file
+//      //porosity
+//      computed_quantities[q](0)
+//          = LayerMovementProblem<dim>::porosity(overpressure, sigma, initial_porosity, compaction_coefficient, hydrostatic);
+
       //porosity
-      computed_quantities[q](0)
-          = CPPLS::porosity(overpressure, sigma, initial_porosity, compaction_coefficient, hydrostatic, mat_id);
+      if
+      (parameters.linear_in_void_ratio)
+      {
+         // computed_quantities[q](0)=
+
+
+      }
+      //Athy's law
+      else
+      {
+          computed_quantities[q](0)=initial_porosity *
+              (std::exp(-1 * compaction_coefficient * (sigma - overpressure - hydrostatic)));
+      }
+
+
+
       //permeability
       computed_quantities[q](1)
-          = CPPLS::permeability(computed_quantities[q](0), initial_permeability, initial_porosity, mat_id);
+          = permeability(computed_quantities[q](0), initial_permeability, initial_porosity );
       //VES
       computed_quantities[q](2)
           = CPPLS::VES(sigma, overpressure, hydrostatic, mat_id);
@@ -1873,6 +1963,9 @@ void LayerMovementProblem<dim>::run()
 {
   constexpr double seconds_in_Myear{60*60*24*365.25*1e6};
   pcout<<"CPPLS running in "<<dim<<" dimensions"<<std::endl;
+
+    //this sets porosity, compressibility, permeability based on choices in parameter file
+    set_physical_functions();
 
     // common mesh
     setup_geometry();
