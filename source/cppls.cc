@@ -206,11 +206,11 @@ private:
     // store functions for porosity, permeability and compressibility
     std::function
       <const double(const double pressure, const double overburden, const double initial_porosity,
-      const double compaction_coefficient, const double hydrostatic)>
+      const double compaction_coefficient, const double hydrostatic, const unsigned int material_id)>
         porosity;
 
     std::function
-      <const double( const double initial_porosity, const double compaction_coefficient)>
+      <const double( const double current_porosity, const double compaction_coefficient, const unsigned int material_id)>
         compressibility;
 
 //    std::function
@@ -334,33 +334,47 @@ void LayerMovementProblem<dim>::set_physical_functions()
 {
   //The purpose of this method is to set, according to the parameter file what compaction rule
   //and associated compressibility, derivative with respect to VES, to use in the assembly methods
-
+  pcout<<"  "<<parameters.linear_in_void_ratio<<std::endl;
   if(parameters.linear_in_void_ratio)
   {
+      pcout<<"Using Linear in Void Ratio Compaction Law"<<std::endl;
       porosity= [](const double pressure, const double overburden, const double initial_porosity,
-                   const double compaction_coefficient, const double hydrostatic)
+                   const double compaction_coefficient, const double hydrostatic, const unsigned int material_id)
                   {
-                    return (initial_porosity * compaction_coefficient);
+                    if(material_id ==0) {return initial_porosity;}
+                    //below is LINEAR IN VOID RATIO
+                     const double init_void_ratio = initial_porosity/(1-initial_porosity);
+                     const double computed_void_ratio = init_void_ratio - compaction_coefficient*(overburden - pressure - hydrostatic);
+
+                     // Assert(init_void_ratio >= computed_void_ratio, ExcInternalError());
+                     return (computed_void_ratio/(1.+computed_void_ratio));
+
                    };
 
-      compressibility = []( const double current_porosity, const double compaction_coefficient)
+      compressibility = []( const double current_porosity, const double compaction_coefficient, const unsigned int material_id)
          {
-           return (current_porosity * compaction_coefficient);
+          if(material_id ==0) {return 0.;}
+           return ((1-current_porosity)*(1-current_porosity) * compaction_coefficient);
           };
   }
 
   //Here we default to Athy's law
   else
   {
+      pcout<<"Using Athy's Compaction Law"<<std::endl;
       porosity= [](const double pressure, const double overburden, const double initial_porosity,
-          const double compaction_coefficient, const double hydrostatic)
+          const double compaction_coefficient, const double hydrostatic, const double material_id)
          {
+          if(material_id ==0) {return initial_porosity;}
+          Assert(overburden - pressure - hydrostatic >= 0, ExcInternalError());
+
            return (initial_porosity *
                    std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
           };
 
-      compressibility = []( const double current_porosity, const double compaction_coefficient)
+      compressibility = []( const double current_porosity, const double compaction_coefficient, const unsigned int material_id)
          {
+          if(material_id ==0) {return 0.;}
            return (current_porosity * compaction_coefficient);
           };
   }
@@ -797,7 +811,7 @@ void LayerMovementProblem<dim>::assemble_Sigma()
 
         // TODO consider moving these properties to the quad point level, not just cell level
         const double initial_porosity = material_data.get_surface_porosity(material_id);
-        const double compaction_coefficient = material_data.get_compressibility_coefficient(material_id);
+        const double compaction_coefficient = material_data.get_compaction_coefficient(material_id);
         const double rock_density = material_data.get_solid_density(material_id);
 
          sedRate.value_list(fe_values.get_quadrature_points(), sedimentation_rate, 1);
@@ -977,7 +991,7 @@ void LayerMovementProblem<dim>::assemble_F()
 
         // TODO consider moving these properties to the quad point level, not just cell level
         const double initial_porosity = material_data.get_surface_porosity(material_id);
-        const double compaction_coefficient = material_data.get_compressibility_coefficient(material_id);
+        const double compaction_coefficient = material_data.get_compaction_coefficient(material_id);
         advection_field.value_list(fe_values.get_quadrature_points(), advection_directions);
         sedRate.value_list(fe_values.get_quadrature_points(), sedimentation_rate, 1);
 
@@ -1211,12 +1225,12 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
         // TODO consider moving these properties to the quad point level, not just cell level
         const double initial_porosity = material_data.get_surface_porosity(material_id);
-        const double compaction_coefficient = material_data.get_compressibility_coefficient(material_id);
+        const double compaction_coefficient = material_data.get_compaction_coefficient(material_id);
         const double initial_permeability = material_data.get_surface_permeability(material_id);
         sedRate.value_list(fe_values.get_quadrature_points(), sedimentation_rates, 1);
 
 
-        //double compressibility = material_data.get_compressibility_coefficient(material_id);
+       // const double compress = compressibility()   material_data.get_compressibility_coefficient(material_id);
 
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
@@ -1233,6 +1247,10 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             Assert(0 < hydrostatic, ExcInternalError());
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic, material_id);
+
+           const double compressibilit = compressibility(phi, compaction_coefficient, material_id);
+
+
             Assert(0 <= phi, ExcInternalError());
             Assert(phi < 1, ExcInternalError());
             //Assert(0< (overburden_at_quad[q_point]-pressure_at_quad[q_point]-hydrostatic), ExcInternalError());
@@ -1803,7 +1821,7 @@ evaluate_vector_field
 
       //permeability
       computed_quantities[q](1)
-          = permeability(computed_quantities[q](0), initial_permeability, initial_porosity );
+          = CPPLS::permeability(computed_quantities[q](0), initial_permeability, initial_porosity, mat_id);
       //VES
       computed_quantities[q](2)
           = CPPLS::VES(sigma, overpressure, hydrostatic, mat_id);
@@ -2133,11 +2151,13 @@ void LayerMovementProblem<dim>::run()
 
         // Solve temperature (coefficients depend on porosity, and TODO: should influence viscosity)
         if (compute_temperature)
+          {
           pcout <<"TEMPTMEEPRPERPERPEPRPERPE";
 
-        //    assemble_matrices_T();
-        //    forge_system_T();
-        //    solve_time_step_T();
+            assemble_matrices_T();
+            forge_system_T();
+           solve_time_step_T();
+          }
         setup_system_F();
         assemble_F();
         solve_F();

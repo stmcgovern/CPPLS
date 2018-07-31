@@ -13,6 +13,7 @@ class Parameters
 {
 public:
     bool compute_temperature;
+    bool linear_in_void_ratio;
 
     unsigned int dimension;
     double base_sedimentation_rate;
@@ -33,9 +34,6 @@ public:
     double cfl;
     double nl_tol;
     unsigned int maxiter;
-
-    bool linear_in_void_ratio;
-
 
     unsigned int output_interval;
 

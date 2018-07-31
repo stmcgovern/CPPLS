@@ -16,49 +16,49 @@ using namespace dealii;
 //The compressibility must correspond to the compaction law used. This is enforced when dealing with linear in the void
 //ratio and with Athy's law, the two choices currently provided
 
-double porosity_athy(const double pressure, const double overburden, const double initial_porosity,
-                const double compaction_coefficient, const double hydrostatic)
-{
-  if(material==0)
-    {
-      return 0;
-    }
-    //below is LINEAR IN VOID RATIO
-     const double init_void_ratio = initial_porosity/(1-initial_porosity);
-     const double computed_void_ratio = init_void_ratio - compaction_coefficient*(overburden - pressure - hydrostatic);
-     const double VES=overburden - pressure - hydrostatic;
-    // std::cout<<VES<<" ";
-    // Assert(init_void_ratio >= computed_void_ratio, ExcInternalError());
-     return (computed_void_ratio/(1+computed_void_ratio));
+//double porosity_athy(const double pressure, const double overburden, const double initial_porosity,
+//                const double compaction_coefficient, const double hydrostatic)
+//{
+//  if(material==0)
+//    {
+//      return 0;
+//    }
+//    //below is LINEAR IN VOID RATIO
+//     const double init_void_ratio = initial_porosity/(1-initial_porosity);
+//     const double computed_void_ratio = init_void_ratio - compaction_coefficient*(overburden - pressure - hydrostatic);
+//     const double VES=overburden - pressure - hydrostatic;
+//    // std::cout<<VES<<" ";
+//    // Assert(init_void_ratio >= computed_void_ratio, ExcInternalError());
+//     return (computed_void_ratio/(1+computed_void_ratio));
 
-     //uncomment below for Athy's law in terms of POROSITY
-    //return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
+//     //uncomment below for Athy's law in terms of POROSITY
+//    //return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
 
-}
+//}
 
-double compressibility_athy(const double compaction_coefficient, const double current_porosity)
-{
-  return (compaction_coefficient* current_porosity);
-}
+//double compressibility_athy(const double compaction_coefficient, const double current_porosity)
+//{
+//  return (compaction_coefficient* current_porosity);
+//}
 //These functions correspond to the choice of a compaction rule LINEAR in the VOID RATIO or LVR
 //This is used for the WANGEN test case
 
-double porosity_LVR(const double pressure, const double overburden, const double initial_porosity,
-                const double compaction_coefficient, const double hydrostatic)
-{
-    return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
-}
+//double porosity_LVR(const double pressure, const double overburden, const double initial_porosity,
+//                const double compaction_coefficient, const double hydrostatic)
+//{
+//    return (initial_porosity * std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
+//}
 
-double compressibility_LVR(const double compaction_coefficient, const double current_porosity)
-{
-  return (compaction_coefficient* current_porosity);
-}
-
-
+//double compressibility_LVR(const double compaction_coefficient, const double current_porosity)
+//{
+//  return (compaction_coefficient* current_porosity);
+//}
 
 
 
-double permeability(const double porosity, const double initial_permeability, const double initial_porosity)
+
+
+double permeability(const double porosity, const double initial_permeability, const double initial_porosity, const unsigned int material)
 {
   if(material==0)
     {

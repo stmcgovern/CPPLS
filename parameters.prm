@@ -66,5 +66,5 @@ end
 
 subsection Output
 #ouput solution vectors every x time steps
-  set output_interval = 100
+  set output_interval = 1
 end
