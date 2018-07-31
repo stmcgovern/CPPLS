@@ -118,6 +118,7 @@ void Parameters::read_parameter_file(const std::string &file_name)
     parameter_handler.enter_subsection("General");
     {
       compute_temperature = parameter_handler.get_bool("compute_temperature");
+      linear_in_void_ratio = parameter_handler.get_bool("linear_in_void_ratio");
     }
     parameter_handler.leave_subsection();
 
