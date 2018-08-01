@@ -366,7 +366,9 @@ void LayerMovementProblem<dim>::set_physical_functions()
           const double compaction_coefficient, const double hydrostatic, const double material_id)
          {
           if(material_id ==0) {return initial_porosity;}
-          Assert(overburden - pressure - hydrostatic >= 0, ExcInternalError());
+          const double VES= overburden - pressure - hydrostatic;
+          std::cout<<"ves"<<VES<<std::endl;
+          //Assert(VES >= 0, ExcInternalError());
 
            return (initial_porosity *
                    std::exp(-1 * compaction_coefficient * (overburden - pressure - hydrostatic)));
@@ -2108,8 +2110,8 @@ void LayerMovementProblem<dim>::run()
         temp_locally_relevant_solution_P=locally_relevant_solution_P;
         bool is_converged=false;
         int nl_loop_count=0;
-        int maxiter{20};
-        double tolerance =1e-2;
+        int maxiter = parameters.maxiter;
+        double tolerance = parameters.nl_tol;
         double deviation{0};
 
 
