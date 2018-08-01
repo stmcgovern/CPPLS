@@ -1325,11 +1325,11 @@ void LayerMovementProblem<dim>::forge_system_P()
 
     laplace_matrix_P.vmult(tmp, old_locally_relevant_solution_P);
     //  pcout << "laplace symmetric: " << laplace_matrix.is_symmetric()<<std::endl;
-    system_rhs_P.add(-(1 - theta) * time_step*2, tmp);
+    system_rhs_P.add(-(1 - theta) * time_step, tmp);
 
-    forcing_terms.add(2*time_step * theta, rhs_P);
+    forcing_terms.add(time_step * theta, rhs_P);
 
-    forcing_terms.add(2* time_step * (1 - theta), old_rhs_P);
+    forcing_terms.add(time_step * (1 - theta), old_rhs_P);
 
     system_rhs_P += forcing_terms;
     system_rhs_P.compress (VectorOperation::add);
@@ -1337,7 +1337,7 @@ void LayerMovementProblem<dim>::forge_system_P()
     system_matrix_P.copy_from(mass_matrix_P);
     // system_matrix.compress (VectorOperation::add);
 
-    system_matrix_P.add(2*time_step * theta, laplace_matrix_P);
+    system_matrix_P.add(time_step * theta, laplace_matrix_P);
     system_matrix_P.compress(VectorOperation::add);
 }
 
@@ -1995,7 +1995,7 @@ void LayerMovementProblem<dim>::run()
     setup_system_P();
     setup_system_T();
     setup_system_Sigma();
-    setup_system_F();
+    //setup_system_F();
     // the solution of this system is done in the LevelSetSolver class
     setup_system_LS();
 
@@ -2013,9 +2013,14 @@ void LayerMovementProblem<dim>::run()
     // we use some hardcode defaults for now
 
     const double min_h = GridTools::minimal_cell_diameter(triangulation) / std::sqrt(2);
-    const double cfl = parameters.cfl;
+
+    //We make the following choice. We set the cfl condition to 1/2 and then we have the
+    //Level set run twice. So the dt for the level set solver is dt_physics=2*dt_ls
+
+    const double cfl = 0.5; //parameters.cfl;
     const double umax = base_sedimentation_rate;  //max_sedRate
-    time_step = cfl * min_h / umax;
+    const double time_step_ls = cfl * min_h / umax;
+    time_step=2*time_step_ls;
     // pcout<<"min_h"<<min_h;
 
 
@@ -2040,7 +2045,7 @@ void LayerMovementProblem<dim>::run()
 
     for(int i=0; i<n_layers; ++i)
     {
-        layers.emplace_back(new LevelSetSolver<dim>(degree_LS, degree, time_step,
+        layers.emplace_back(new LevelSetSolver<dim>(degree_LS, degree, time_step_ls,
                             cK, cE, verbose, ALGORITHM, TIME_INTEGRATION,
                             triangulation, mpi_communicator,
                             dof_handler, dof_handler_LS, computing_timer, i));
@@ -2077,27 +2082,25 @@ void LayerMovementProblem<dim>::run()
 
         // Level set computation
         // original level_set_solver.set_velocity(locally_relevant_solution_u, locally_relevant_solution_v);
-        for(int h=0;h<2;++h)
+         n_active_layers=active_layers_in_time(time);
+        //We evolve the ls TWO times  per time_step for the physics
+         for(int h=0;h<2;++h)
           {
-        n_active_layers=active_layers_in_time(time);
-        {
             //TimerOutput::Scope t(computing_timer, "LS");
             for(int i=0; i<n_active_layers; ++i)
             {
-
-                if(dim==3){
-                layers[i]->set_velocity(locally_relevant_solution_Wxy,locally_relevant_solution_Wxy, locally_relevant_solution_F);
-                  }
-                else{
+                if(dim==3)
+                {
+                  layers[i]->set_velocity(locally_relevant_solution_Wxy,locally_relevant_solution_Wxy, locally_relevant_solution_F);
+                }
+                else
+                {
                   layers[i]->set_velocity(locally_relevant_solution_Wxy, locally_relevant_solution_F);
-                  }
-
+                }
                 layers[i]->nth_time_step();
                 layers[i]->get_unp1(locally_relevant_solution_LS_0);
                 (*layers_solutions[i])=locally_relevant_solution_LS_0;
-
             }
-        }
           }
 
         // set material ids based on locally_relevant_solution_LS
