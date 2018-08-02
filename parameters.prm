@@ -1,8 +1,8 @@
 subsection General
 #compute the temperature field, true/false
-  set compute_temperature = true
+  set compute_temperature = false
 #use linear in void ratio compaction law or if false default to Athy's law
-  set linear_in_void_ratio = true
+  set linear_in_void_ratio = false
 end
 
 
@@ -12,19 +12,19 @@ subsection Geometry
 #square cube true/false
   set cubic = true
 #side length of the square/cube (m)
-  set box_size = 1024
+  set box_size = 1000
 #if rectangular (x,y,z) dimensions - y ignored in 2D
   set x_length = 1024
   set y_length = 1024
   set z_length = 1024
 #set the sedimentation rate (m/s)
-  set base_sedimentation_rate = 3.19e-11
+  set base_sedimentation_rate = 3.1688e-11
 end
 
 
 subsection Layer Parameters
 #number of sedimentary layers, not including basement
-  set n_layers = 4
+  set n_layers = 1
 
 # a sequence of rock_types to be added
 # length of array must be = n_layers
@@ -37,7 +37,7 @@ end
 
 subsection Finite Element
 #number of initial global refinements - note: (2^dim)^initial_refinement_level = n_cells
-  set initial_refinement_level = 4
+  set initial_refinement_level = 6
 #finite element degree of the physical quantity dof_handler, FE_Q
   set degree = 2
 #finite element degree of the level set dof_handler, FE_Q

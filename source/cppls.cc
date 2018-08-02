@@ -282,6 +282,8 @@ private:
         output_number++;
     }
 
+    void compute_hydrostatic_thicknesses();
+
 
     class Postprocessor;
 
@@ -367,7 +369,7 @@ void LayerMovementProblem<dim>::set_physical_functions()
          {
           if(material_id ==0) {return initial_porosity;}
           const double VES= overburden - pressure - hydrostatic;
-          std::cout<<"ves"<<VES<<std::endl;
+          //std::cout<<"ves"<<VES<<std::endl;
           //Assert(VES >= 0, ExcInternalError());
 
            return (initial_porosity *
@@ -979,6 +981,7 @@ void LayerMovementProblem<dim>::assemble_F()
     system_matrix_F = 0;
 
     int material_id;
+    const double min_h = GridTools::minimal_cell_diameter(triangulation) / std::sqrt(2);
 
     for (auto cell : filter_iterators(dof_handler.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
 
@@ -1006,15 +1009,18 @@ void LayerMovementProblem<dim>::assemble_F()
             point_for_depth = fe_values.quadrature_point(q_point);
             const double hydrostatic = 9.81 * material_data.fluid_density *
                                        (parameters.box_size - point_for_depth[dim-1]);
+            const double old_hydrostatic = 9.81 * material_data.fluid_density *
+                                       (parameters.box_size - (point_for_depth[dim-1]+min_h));
             Assert(0 < hydrostatic, ExcInternalError());
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic, material_id);
 
             Assert(0 <= phi, ExcInternalError());
             Assert(phi < 1, ExcInternalError());
+            const double temp_old_overburden= old_overburden_at_quad[q_point]-2200*min_h;
 
-            const double old_phi = porosity(old_pressure_at_quad[q_point], old_overburden_at_quad[q_point], initial_porosity,
-                                            compaction_coefficient, hydrostatic, material_id);
+            const double old_phi = porosity(old_pressure_at_quad[q_point], temp_old_overburden /*old_overburden_at_quad[q_point]*/, initial_porosity,
+                                            compaction_coefficient, old_hydrostatic, material_id);
 
             Assert(0 <= old_phi, ExcInternalError());
             Assert(old_phi < 1, ExcInternalError());
@@ -1025,7 +1031,7 @@ void LayerMovementProblem<dim>::assemble_F()
 
             Assert(dphidt < 0.1, ExcInternalError());
 
-            rhs_at_quad[q_point] = -1*dphidt / (1 - phi);
+            rhs_at_quad[q_point] = 1*dphidt / (1 - phi);
 
             for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j)
@@ -1796,6 +1802,7 @@ evaluate_vector_field
       const double overpressure=inputs.solution_values[q](0);
       const double sigma = inputs.solution_values[q](1);
       const double speed_function = inputs.solution_values[q](2);
+      double porosity_return_value;
 
 
     //TODO: using the std::function in the LayerMovementProblem class is not working within this inherited DataPostProcessor class
@@ -1805,19 +1812,28 @@ evaluate_vector_field
 //          = LayerMovementProblem<dim>::porosity(overpressure, sigma, initial_porosity, compaction_coefficient, hydrostatic);
 
       //porosity
-      if
-      (parameters.linear_in_void_ratio)
-      {
-         // computed_quantities[q](0)=
 
+
+      if (parameters.linear_in_void_ratio)
+      {
+          //below is LINEAR IN VOID RATIO
+           const double init_void_ratio = initial_porosity/(1-initial_porosity);
+           const double computed_void_ratio = init_void_ratio - compaction_coefficient*(sigma - overpressure - hydrostatic);
+
+           // Assert(init_void_ratio >= computed_void_ratio, ExcInternalError());
+
+            porosity_return_value=(computed_void_ratio/(1.+computed_void_ratio));
 
       }
       //Athy's law
       else
       {
-          computed_quantities[q](0)=initial_porosity *
-              (std::exp(-1 * compaction_coefficient * (sigma - overpressure - hydrostatic)));
+            porosity_return_value=initial_porosity *
+                (std::exp(-1 * compaction_coefficient * (sigma - overpressure - hydrostatic)));
       }
+       if(mat_id ==0) {porosity_return_value=initial_porosity;}
+      //porosity
+      computed_quantities[q](0)=porosity_return_value;
 
 
 
@@ -1977,6 +1993,16 @@ void LayerMovementProblem<dim>::output_results_pp ()
 
 
 
+template <int dim>
+void LayerMovementProblem<dim>::compute_hydrostatic_thicknesses()
+{
+
+
+
+
+
+}
+
 
 template <int dim>
 void LayerMovementProblem<dim>::run()
@@ -2003,9 +2029,8 @@ void LayerMovementProblem<dim>::run()
     const unsigned int output_interval= parameters.output_interval;
     const bool compute_temperature = parameters.compute_temperature;
 
+    const double tolerance = parameters.nl_tol;
     const unsigned int maxiter = parameters.maxiter;
-    const double nl_tol = parameters.nl_tol;
-
 
     //const SedimentationRate SedRate(parameters);
     const double base_sedimentation_rate = parameters.base_sedimentation_rate;
@@ -2113,8 +2138,6 @@ void LayerMovementProblem<dim>::run()
         temp_locally_relevant_solution_P=locally_relevant_solution_P;
         bool is_converged=false;
         int nl_loop_count=0;
-        int maxiter = parameters.maxiter;
-        double tolerance = parameters.nl_tol;
         double deviation{0};
 
 
@@ -2179,7 +2202,8 @@ void LayerMovementProblem<dim>::run()
     } // end of time loop
 
     //output once at the end
-   // output_results_pp();
+   // output_results_pp()
+    compute_hydrostatic_thicknesses();
 } //end of run function
 
 
