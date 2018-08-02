@@ -1678,7 +1678,7 @@ int LayerMovementProblem<dim>::active_layers_in_time (double time)
   for (int i=1;i<=n_layers;++i)
     {
       double current_fraction= static_cast<double>(i)/(n_layers);
-      if(time<(current_fraction*final_time/2))
+      if(time<(current_fraction*final_time))
         {
           pcout<<"layer"<<i<<std::endl;
           return i;

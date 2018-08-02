@@ -58,7 +58,7 @@ private:
     const std::vector<double> surface_porosity
     {0.61,0.61,0.61,0.60,0.61, 0.61,0.61,0.61,0.61,0.61, 0.61,0.61,0.61,0.61,0.65}; // [-]
     const std::vector<double> surface_permeability
-    {1e-19,1e-18,3e-21,4e-21,5e-19, 1e-19,3e-18,4e-18,5e-18, 1e-16,3e-18,4e-18,5e-18}; //m^2
+    {1e-19,1e-18,3e-18,4e-21,5e-19, 1e-19,3e-18,4e-18,5e-18, 1e-16,3e-18,4e-18,5e-18}; //m^2
     const std::vector<double> solid_density
     {0,2720,2720,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020}; // kg/m^3
     //This is the compaction coefficient that appears in the compaction law
