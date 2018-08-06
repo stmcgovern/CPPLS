@@ -1256,7 +1256,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic, material_id);
 
-           const double compressibilit = compressibility(phi, compaction_coefficient, material_id);
+           const double compress = compressibility(phi, compaction_coefficient, material_id);
 
 
             Assert(0 <= phi, ExcInternalError());
@@ -1277,28 +1277,31 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
 
             //Assert(dphidt <= 0, ExcInternalError());
 
-            const double diff_coeff_at_quad = (perm_k / (material_data.fluid_viscosity * compaction_coefficient *(1-phi)) );
-             double rhs_coeff = 1;
+            const double diffusion_coeff = (perm_k / material_data.fluid_viscosity);
+            const double rhs_coeff = compress/(1-phi);
+            const double mass_matrix_coeff = rhs_coeff;
             const double rhs_at_quad = (9.8 * (2220- material_data.fluid_density)* -1*sedimentation_rates[q_point]);
               // (overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / ( time_step) -
               //                       (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]);
-//            if(material_id==0)
-//              {
-//                rhs_coeff=0;
-//              }
-            //Assert (0 <= rhs_at_quad, ExcInternalError());
 
-            for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-                for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+            Assert (0 <= rhs_at_quad, ExcInternalError());
 
-                    cell_laplace_matrix(i, j) += diff_coeff_at_quad * (fe_values.shape_grad(i, q_point) *
-                                                 fe_values.shape_grad(j, q_point) * fe_values.JxW(q_point));
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+            {
+                for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                {
 
-                    cell_mass_matrix(i, j) +=
-                        (fe_values.shape_value(i, q_point) * fe_values.shape_value(j, q_point) * fe_values.JxW(q_point));
+                    cell_laplace_matrix(i, j) += diffusion_coeff * (fe_values.shape_grad(i, q_point)
+                                                                 * fe_values.shape_grad(j, q_point)
+                                                                 * fe_values.JxW(q_point));
+
+                    cell_mass_matrix(i, j) += mass_matrix_coeff * (fe_values.shape_value(i, q_point)
+                                                                * fe_values.shape_value(j, q_point)
+                                                                * fe_values.JxW(q_point));
                 } //end of j
 
-                cell_rhs(i) += rhs_coeff*(rhs_at_quad * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
+                cell_rhs(i) += rhs_coeff * (rhs_at_quad
+                               * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point));
             } //end of i
         } // end q
 
