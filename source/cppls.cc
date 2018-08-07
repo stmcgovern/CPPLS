@@ -220,7 +220,10 @@ private:
 
 
 
-
+    bool compute_inv_mass_matrix;
+    LA::MPI::SparseMatrix system_B_matrix;
+    LA::MPI::SparseMatrix mass_matrix;
+    LA::MPI::SparseMatrix inverse_mass_matrix;
 
     // Member Functions
 
@@ -267,6 +270,10 @@ private:
 
     bool estimate_nl_error();
     int active_layers_in_time(double time);
+
+    void prepare_advance_old_vectors();
+    void advance_old_vectors(LA::MPI::Vector &);
+
 
     void prepare_next_time_step();
 
@@ -316,6 +323,7 @@ LayerMovementProblem<dim>::LayerMovementProblem(const CPPLS::Parameters& paramet
 , output_number {0}
 , out_index{0}
 , theta(parameters.theta)
+, compute_inv_mass_matrix(true)
 {};
 
 // Destructor
@@ -1997,6 +2005,151 @@ void LayerMovementProblem<dim>::output_results_pp ()
 
 
 template <int dim>
+void LayerMovementProblem<dim>::prepare_advance_old_vectors()
+{
+  //This method ensures that the M^-1 and B matrices are constructed
+  TimerOutput::Scope t(computing_timer, "prepare to advance old vectors");
+
+  //The idea is that we have to update the existing vector by multiplication of it with (I + M^-1 B)
+  //Where M^-1 is the inverse of the mass matrix
+  //This can be computed by solving a CG system for it.
+  //This needs to be solved whenever basis changes (i.e. a grid refinement)
+  //The B matrix can be computed whenever speed function F changes
+
+  //we just do it at same time
+
+//  if(compute_inv_mass_matrix)
+//  {
+//       compute_inverse_mass_matrix();
+//  }
+//  compute_inv_mass_matrix=false;
+
+
+   const AdvectionField<dim> advection_field;
+
+   const QGauss<dim>  quadrature_formula(degree+2);
+   FEValues<dim> fe_values (fe, quadrature_formula,
+                            update_values | update_gradients |
+                            update_quadrature_points |
+                            update_JxW_values);
+   const unsigned int   dofs_per_cell = fe.dofs_per_cell;
+   const unsigned int   n_q_points    = quadrature_formula.size();
+   FullMatrix<double>   cell_B_matrix (dofs_per_cell, dofs_per_cell);
+   FullMatrix<double>   cell_mass_matrix (dofs_per_cell, dofs_per_cell);
+   std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
+
+    std::vector<Tensor<1, dim>> advection_directions(n_q_points);
+    std::vector<double> speed_at_quad(n_q_points);
+
+
+   for (auto cell : filter_iterators(dof_handler.active_cell_iterators(),
+                                     IteratorFilters::LocallyOwnedCell()))
+   {
+        cell_B_matrix = 0;
+        cell_mass_matrix =0;
+        fe_values.reinit (cell);
+
+        advection_field.value_list(fe_values.get_quadrature_points(), advection_directions);
+        fe_values.get_function_values(locally_relevant_solution_F, speed_at_quad);
+        for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+        {
+            for (unsigned int i=0; i<dofs_per_cell; ++i)
+            {
+                 for (unsigned int j=0; j<dofs_per_cell; ++j)
+                   {
+                       cell_B_matrix(i,j) += -1*time_step* speed_at_quad[q_point] *
+                                            fe_values.shape_value(i, q_point) *
+                                            (advection_directions[q_point] *
+                                            fe_values.shape_grad(j,q_point) *
+                                            fe_values.JxW(q_point));
+
+                       cell_mass_matrix(i,j) += (fe_values.shape_value(i, q_point)
+                                                 * fe_values.shape_value(j, q_point)
+                                                 * fe_values.JxW(q_point));
+                   }
+
+               }
+          }
+          cell->get_dof_indices (local_dof_indices);
+          //TODO: maybe a new one but just use this constraint object for now
+          constraints_LS.distribute_local_to_global (cell_B_matrix,
+                                                  local_dof_indices,
+                                                  system_B_matrix);
+          constraints_LS.distribute_local_to_global (cell_mass_matrix,
+                                                  local_dof_indices,
+                                                  mass_matrix);
+
+      } //end cell
+
+    system_B_matrix.compress (VectorOperation::add);
+    mass_matrix.compress (VectorOperation::add);
+
+
+}
+
+
+template <int dim>
+void LayerMovementProblem<dim>::advance_old_vectors( LA::MPI::Vector &locally_relevant_vector)
+{
+  TimerOutput::Scope t(computing_timer, "advance old vectors");
+
+  //must be a NONZERO vector for linear system to have solution
+
+
+  //precondition: have M and B matrices. We form the linear system MU^{k+1}=(M+B)U^{k}
+  // and solve with CG for U^{k+1}
+
+  //postcondtion: U will be "shifted" locally by the amount dt*F, thus bringing the old_values
+  //              onto the current time step's computational grid.
+  //              This is a complement to updating the material ids of the cells
+
+
+    LA::MPI::Vector tmp;
+    LA::MPI::Vector rhs_terms;
+
+    tmp.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+
+    rhs_terms.reinit(locally_owned_dofs, mpi_communicator);
+
+
+    //M*U
+    mass_matrix.vmult(tmp, locally_relevant_vector);
+
+    rhs_terms.add(1, tmp);
+
+    //B*U
+
+    system_B_matrix.vmult(tmp, locally_relevant_vector);
+
+    rhs_terms.add(1, tmp);
+
+
+    LA::MPI::Vector completely_distributed_solution(locally_owned_dofs, mpi_communicator);
+
+    SolverControl solver_control(dof_handler.n_dofs(), 1e-12 * rhs_terms.l2_norm());
+    LA::SolverCG solver(solver_control, mpi_communicator);
+
+    LA::MPI::PreconditionAMG preconditioner;
+    //LA::MPI::PreconditionSSOR preconditioner;
+    LA::MPI::PreconditionAMG::AdditionalData data;
+
+    data.symmetric_operator = true;
+    preconditioner.initialize(mass_matrix, data);
+
+    solver.solve(mass_matrix, completely_distributed_solution, rhs_terms, preconditioner);
+
+    pcout << " Advance vector mass matrix system solved in " << solver_control.last_step() << " iterations." << std::endl;
+
+    constraints_P.distribute(completely_distributed_solution);
+
+   locally_relevant_vector = completely_distributed_solution;
+
+
+}
+
+
+
+template <int dim>
 void LayerMovementProblem<dim>::compute_hydrostatic_thicknesses()
 {
 
@@ -2029,6 +2182,10 @@ void LayerMovementProblem<dim>::run()
     setup_system_LS();
 
     initial_conditions();
+
+    bool compute_inv_mass_matrix = true;
+
+
     const unsigned int output_interval= parameters.output_interval;
     const bool compute_temperature = parameters.compute_temperature;
 
@@ -2133,7 +2290,8 @@ void LayerMovementProblem<dim>::run()
 
         // set material ids based on locally_relevant_solution_LS
         setup_material_configuration(); // TODO: move away from cell id to values at quad points
-
+        prepare_advance_old_vectors();
+        advance_old_vectors(old_locally_relevant_solution_P);
         //output_results_pp();
 
         //prepare for nonlinear Picard iteration
