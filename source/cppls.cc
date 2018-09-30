@@ -242,6 +242,7 @@ private:
     void setup_system_LS();
     void setup_system_F();
     void setup_system_Sigma();
+    void setup_system_shift();
 
     void initial_conditions();
     void set_boundary_inlet();
@@ -717,6 +718,29 @@ void LayerMovementProblem<dim>::setup_system_LS()
 
     constraints_LS.close();
 }
+
+
+template <int dim>
+void LayerMovementProblem<dim>::setup_system_shift()
+{
+
+  // create sparsity pattern
+
+  DynamicSparsityPattern dsp(locally_relevant_dofs);
+  DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints_F, false);
+  SparsityTools::distribute_sparsity_pattern(dsp, dof_handler.n_locally_owned_dofs_per_processor(), mpi_communicator,
+          locally_relevant_dofs);
+  // setup matrix
+
+  system_B_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp, mpi_communicator);
+  mass_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp, mpi_communicator);
+
+}
+
+
+
+
+
 
 template <int dim>
 void LayerMovementProblem<dim>::initial_conditions()
@@ -2003,7 +2027,6 @@ void LayerMovementProblem<dim>::output_results_pp ()
 }
 
 
-
 template <int dim>
 void LayerMovementProblem<dim>::prepare_advance_old_vectors()
 {
@@ -2057,11 +2080,11 @@ void LayerMovementProblem<dim>::prepare_advance_old_vectors()
             {
                  for (unsigned int j=0; j<dofs_per_cell; ++j)
                    {
-                       cell_B_matrix(i,j) += -1*time_step* speed_at_quad[q_point] *
+                       cell_B_matrix(i,j) += time_step* speed_at_quad[q_point] *
                                             fe_values.shape_value(i, q_point) *
                                             (advection_directions[q_point] *
-                                            fe_values.shape_grad(j,q_point) *
-                                            fe_values.JxW(q_point));
+                                            fe_values.shape_grad(j,q_point)) *
+                                            fe_values.JxW(q_point);
 
                        cell_mass_matrix(i,j) += (fe_values.shape_value(i, q_point)
                                                  * fe_values.shape_value(j, q_point)
@@ -2072,10 +2095,10 @@ void LayerMovementProblem<dim>::prepare_advance_old_vectors()
           }
           cell->get_dof_indices (local_dof_indices);
           //TODO: maybe a new one but just use this constraint object for now
-          constraints_LS.distribute_local_to_global (cell_B_matrix,
+          constraints_F.distribute_local_to_global (cell_B_matrix,
                                                   local_dof_indices,
                                                   system_B_matrix);
-          constraints_LS.distribute_local_to_global (cell_mass_matrix,
+          constraints_F.distribute_local_to_global (cell_mass_matrix,
                                                   local_dof_indices,
                                                   mass_matrix);
 
@@ -2126,7 +2149,7 @@ void LayerMovementProblem<dim>::advance_old_vectors( LA::MPI::Vector &locally_re
 
     LA::MPI::Vector completely_distributed_solution(locally_owned_dofs, mpi_communicator);
 
-    SolverControl solver_control(dof_handler.n_dofs(), 1e-12 * rhs_terms.l2_norm());
+    SolverControl solver_control(dof_handler.n_dofs(), 1e-6 * rhs_terms.l2_norm());
     LA::SolverCG solver(solver_control, mpi_communicator);
 
     LA::MPI::PreconditionAMG preconditioner;
@@ -2159,7 +2182,6 @@ void LayerMovementProblem<dim>::compute_hydrostatic_thicknesses()
 
 }
 
-
 template <int dim>
 void LayerMovementProblem<dim>::run()
 {
@@ -2180,6 +2202,7 @@ void LayerMovementProblem<dim>::run()
     //setup_system_F();
     // the solution of this system is done in the LevelSetSolver class
     setup_system_LS();
+    setup_system_shift();
 
     initial_conditions();
 
@@ -2253,7 +2276,7 @@ void LayerMovementProblem<dim>::run()
     //display_vectors();
 
     // TIME STEPPING
-    timestep_number = 1;
+    timestep_number = 0;
     for (double time = time_step; time <= final_time; time += time_step, ++timestep_number) {
         pcout << "Time step " << timestep_number << " at t=" << time <<"s: "<<time/seconds_in_Myear<<"Ma"<< std::endl;
         pcout<< " % complete:"<<100*(timestep_number*time_step)/final_time<<std::endl; //for constant time_step
@@ -2292,6 +2315,24 @@ void LayerMovementProblem<dim>::run()
         setup_material_configuration(); // TODO: move away from cell id to values at quad points
         prepare_advance_old_vectors();
         advance_old_vectors(old_locally_relevant_solution_P);
+        //output_results_pp();
+
+        pcout<<"t"<<timestep_number<<" output before shift";
+        if(timestep_number>=1)
+        {
+
+            output_vectors();
+            output_number++;
+          prepare_advance_old_vectors();
+
+          advance_old_vectors(old_locally_relevant_solution_P);
+          output_vectors();
+          pcout<<"t"<<timestep_number<<" output after shift";
+
+        }
+//        output_vectors();
+//        pcout<<"t"<<timestep_number<<" output after shift";
+
         //output_results_pp();
 
         //prepare for nonlinear Picard iteration

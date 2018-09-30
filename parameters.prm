@@ -2,7 +2,7 @@ subsection General
 #compute the temperature field, true/false
   set compute_temperature = false
 #use linear in void ratio compaction law or if false default to Athy's law
-  set linear_in_void_ratio = false
+  set linear_in_void_ratio = true
 end
 
 
@@ -58,10 +58,11 @@ end
 
 subsection Nonlinear Solver Picard
 # solution tolerance
-  set nl_tol = 1e-8
+  set nl_tol = 1e-4
 # maximum iterations
-  set maxiter = 20
+  set maxiter = 1
 end
+
 
 
 subsection Output
