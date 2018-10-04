@@ -24,7 +24,7 @@ end
 
 subsection Layer Parameters
 #number of sedimentary layers, not including basement
-  set n_layers = 2
+  set n_layers = 1
 
 # a sequence of rock_types to be added
 # length of array must be = n_layers
@@ -60,7 +60,7 @@ subsection Nonlinear Solver Picard
 # solution tolerance
   set nl_tol = 1e-4
 # maximum iterations
-  set maxiter = 1
+  set maxiter = 20
 end
 
 

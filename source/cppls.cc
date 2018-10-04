@@ -132,6 +132,7 @@ private:
     ConstraintMatrix constraints_LS;
     ConstraintMatrix constraints_F;
     ConstraintMatrix constraints_Sigma;
+    ConstraintMatrix constraints_shift;
 
     // FE Field Solution Vectors
     // Ghosted
@@ -724,16 +725,30 @@ template <int dim>
 void LayerMovementProblem<dim>::setup_system_shift()
 {
 
+
+
+  // constraints
+
+  constraints_shift.clear();
+
+  constraints_shift.reinit(locally_relevant_dofs);
+
+  DoFTools::make_hanging_node_constraints(dof_handler, constraints_shift);
+
+  constraints_shift.close();
+
+
   // create sparsity pattern
 
   DynamicSparsityPattern dsp(locally_relevant_dofs);
-  DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints_F, false);
+  DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints_shift, false);
   SparsityTools::distribute_sparsity_pattern(dsp, dof_handler.n_locally_owned_dofs_per_processor(), mpi_communicator,
           locally_relevant_dofs);
   // setup matrix
 
   system_B_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp, mpi_communicator);
   mass_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp, mpi_communicator);
+
 
 }
 
@@ -1147,6 +1162,7 @@ template <int dim>
 void LayerMovementProblem<dim>::setup_material_configuration()
 {
     //TODO
+
     TimerOutput::Scope t(computing_timer, "set_material_configuration");
     // This function sets material ids of cells based on the location of the interface, i.e. loc_rel_solution_LS
 
@@ -2068,6 +2084,7 @@ void LayerMovementProblem<dim>::prepare_advance_old_vectors()
    for (auto cell : filter_iterators(dof_handler.active_cell_iterators(),
                                      IteratorFilters::LocallyOwnedCell()))
    {
+
         cell_B_matrix = 0;
         cell_mass_matrix =0;
         fe_values.reinit (cell);
@@ -2086,19 +2103,20 @@ void LayerMovementProblem<dim>::prepare_advance_old_vectors()
                                             fe_values.shape_grad(j,q_point)) *
                                             fe_values.JxW(q_point);
 
-                       cell_mass_matrix(i,j) += (fe_values.shape_value(i, q_point)
-                                                 * fe_values.shape_value(j, q_point)
-                                                 * fe_values.JxW(q_point));
+                       cell_mass_matrix(i,j) += fe_values.shape_value(i, q_point)
+                                               * fe_values.shape_value(j, q_point)
+                                               * fe_values.JxW(q_point);
                    }
 
                }
           }
           cell->get_dof_indices (local_dof_indices);
-          //TODO: maybe a new one but just use this constraint object for now
-          constraints_F.distribute_local_to_global (cell_B_matrix,
+
+          constraints_shift.distribute_local_to_global (cell_B_matrix,
                                                   local_dof_indices,
                                                   system_B_matrix);
-          constraints_F.distribute_local_to_global (cell_mass_matrix,
+
+          constraints_shift.distribute_local_to_global (cell_mass_matrix,
                                                   local_dof_indices,
                                                   mass_matrix);
 
@@ -2106,7 +2124,6 @@ void LayerMovementProblem<dim>::prepare_advance_old_vectors()
 
     system_B_matrix.compress (VectorOperation::add);
     mass_matrix.compress (VectorOperation::add);
-
 
 }
 
@@ -2294,7 +2311,7 @@ void LayerMovementProblem<dim>::run()
         //We evolve the ls TWO times  per time_step for the physics
          for(int h=0;h<2;++h)
           {
-            //TimerOutput::Scope t(computing_timer, "LS");
+            TimerOutput::Scope t(computing_timer, "Total LS");
             for(int i=0; i<n_active_layers; ++i)
             {
                 if(dim==3)
@@ -2313,27 +2330,14 @@ void LayerMovementProblem<dim>::run()
 
         // set material ids based on locally_relevant_solution_LS
         setup_material_configuration(); // TODO: move away from cell id to values at quad points
-        prepare_advance_old_vectors();
-        advance_old_vectors(old_locally_relevant_solution_P);
-        //output_results_pp();
 
-        pcout<<"t"<<timestep_number<<" output before shift";
         if(timestep_number>=1)
         {
-
-            output_vectors();
-            output_number++;
           prepare_advance_old_vectors();
-
           advance_old_vectors(old_locally_relevant_solution_P);
-          output_vectors();
-          pcout<<"t"<<timestep_number<<" output after shift";
+          //advance_old_vectors(old_locally_relevant_solution_T);
 
         }
-//        output_vectors();
-//        pcout<<"t"<<timestep_number<<" output after shift";
-
-        //output_results_pp();
 
         //prepare for nonlinear Picard iteration
         temp_locally_relevant_solution_Sigma=locally_relevant_solution_Sigma;

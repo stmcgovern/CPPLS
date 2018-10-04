@@ -1560,7 +1560,7 @@ void LevelSetSolver<dim>::solve(const ConstraintMatrix &constraints,
                                 const PETScWrappers::MPI::Vector &rhs)
 {
 //  computing_timer.TimerOutput( "LS_solve");
-  std::string output_name_here{"Solve"};
+  std::string output_name_here{"Solve_LS_"};
   output_name_here +=Utilities::int_to_string(interface_number);
   TimerOutput::Scope t(computing_timer, output_name_here);
     // all vectors are NON-GHOSTED
