@@ -2439,6 +2439,7 @@ void LayerMovementProblem<dim>::run()
     //output once at the end
     display_vectors();
     compute_hydrostatic_thicknesses();
+    pcout<<std::endl<<"Simulation Completed"<<std::endl;
 
 } //end of run function
 
