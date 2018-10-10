@@ -410,18 +410,47 @@ void LayerMovementProblem<dim>::setup_geometry()
     {
         GridGenerator::hyper_cube(triangulation, 0, parameters.box_size, true);
     }
-    else{
-    // GridGenerator::subdivided_hyper_rectangle(triangulation, 0, parameters.box_size);
-    //TODO for weak scaling, want to have for same depth different basin widths (and breadths)
-    //get a rectangle with x_length in multiples of the z_length,(3d y too)
-    // want cell structure(i.e. location of vertices to be same, just more - "grown basin")
-    //GridGenerator::hyper_rectangle()
+    else
+    {
+        //For weak scaling, want to have for same depth different basin widths (and breadths)
+        //get a rectangle with x_length in multiples of the z_length,(3d y too)
+        //want cell structure(i.e. location of vertices) to be same, just more - "grown basin"
+
+        std::vector<unsigned int> repetitions(dim);
+        if(dim==2)
+          {
+            //Assuming that this is an integer
+            repetitions[0] = parameters.x_length / parameters.z_length;
+            repetitions[1] = 1;
+
+            Point<dim> bottom_left (0,0);
+            Point<dim> top_right (parameters.x_length,parameters.z_length);
+            GridGenerator::subdivided_hyper_rectangle(triangulation, repetitions, bottom_left, top_right, true);
+
+          }
+        else if(dim==3)
+          {
+            //Assuming that these are integers
+            repetitions[0] = parameters.x_length / parameters.z_length;
+            repetitions[1] = parameters.y_length / parameters.z_length;
+            repetitions[2] = 1;
+
+            Point<dim> bottom_left (0,0,0);
+            Point<dim> top_right (parameters.x_length, parameters.y_length, parameters.z_length );
+            GridGenerator::subdivided_hyper_rectangle(triangulation, repetitions, bottom_left, top_right, true);
+
+          }
+          else
+          {
+             AssertThrow (false, ExcNotImplemented());
+          }
+
+
+
     }
-
-
-
+    //print_mesh_info(triangulation, "my_grid");
     triangulation.refine_global(parameters.initial_refinement_level);
-    // print_mesh_info(triangulation, "my_grid");
+
     for (auto cell : filter_iterators(triangulation.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
         cell->set_material_id(0);
     }
@@ -443,7 +472,7 @@ void LayerMovementProblem<dim>::setup_dofs()
     std::vector<types::global_dof_index> starting_indices;
     starting_indices.clear();
 
-    std::cout<<dof_handler.n_locally_owned_dofs();
+    pcout<<std::endl<<"Dofs on this proc:"<< dof_handler.n_locally_owned_dofs();
 
 
     //re-check this algorithm for AMR case
