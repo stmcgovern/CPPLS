@@ -2437,8 +2437,9 @@ void LayerMovementProblem<dim>::run()
     } // end of time loop
 
     //output once at the end
-   // output_results_pp()
+    display_vectors();
     compute_hydrostatic_thicknesses();
+
 } //end of run function
 
 
