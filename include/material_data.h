@@ -18,7 +18,7 @@ public:
 
 
     const double fluid_density {
-        1000
+        1024
     }; //pore fluid (water) density
 
     //(TODO:make this weakly dependent on T)
@@ -60,7 +60,7 @@ private:
     const std::vector<double> surface_permeability
     {1e-19,1e-18,3e-18,4e-21,5e-19, 1e-19,3e-18,4e-18,5e-18, 1e-16,3e-18,4e-18,5e-18}; //m^2
     const std::vector<double> solid_density
-    {0,2720,2720,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020}; // kg/m^3
+    {0,2720,2120,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020}; // kg/m^3
     //This is the compaction coefficient that appears in the compaction law
     const std::vector<double> compaction_coefficient
     {1e-200,5e-8,1e-9,1e-10,5e-10, 1e-9,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Pa^-1
