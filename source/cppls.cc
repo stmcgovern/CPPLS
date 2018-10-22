@@ -984,7 +984,7 @@ void LayerMovementProblem<dim>::solve_Sigma()
 
     LA::MPI::Vector completely_distributed_solution(locally_owned_dofs, mpi_communicator);
 
-    SolverControl solver_control(dof_handler.n_dofs(), 1e-12 * rhs_Sigma.l2_norm());
+    SolverControl solver_control(dof_handler.n_dofs(), 1e-6 * rhs_Sigma.l2_norm());
     //  LA::SolverBicgstab solver(solver_control, mpi_communicator);
     LA::SolverGMRES solver(solver_control, mpi_communicator);
     //  LA::MPI::PreconditionAMG preconditioner;
