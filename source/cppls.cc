@@ -1110,13 +1110,13 @@ void LayerMovementProblem<dim>::assemble_F()
           //  pcout<<"old_phi"<<old_phi<<std::endl;
             Assert(0 <= old_phi, ExcInternalError());
             Assert(old_phi < 1, ExcInternalError());
-            pcout<<"old: "<<old_pressure_at_quad[q_point]<<" "<<temp_old_overburden<<" "
-                <<old_overburden_at_quad[q_point]<<" "<< old_hydrostatic<<" "<<old_phi<<std::endl;
-            pcout<<"now: "<<pressure_at_quad[q_point]<<" "<<overburden_at_quad[q_point]<<" "
-                <<hydrostatic<<" "<< phi<<std::endl;
+//            pcout<<"old: "<<old_pressure_at_quad[q_point]<<" "<<temp_old_overburden<<" "
+//                <<old_overburden_at_quad[q_point]<<" "<< old_hydrostatic<<" "<<old_phi<<std::endl;
+//            pcout<<"now: "<<pressure_at_quad[q_point]<<" "<<overburden_at_quad[q_point]<<" "
+//                <<hydrostatic<<" "<< phi<<std::endl;
 
              double dphidt = (phi - old_phi) / time_step;
-             pcout<<"dphi: "<<phi - old_phi<<std::endl;
+//             pcout<<"dphi: "<<phi - old_phi<<std::endl;
 
             Assert(dphidt < 0.1, ExcInternalError());
 
@@ -1374,7 +1374,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             //pcout<<"dphidt:"<<dphidt<<std::endl;
             //pcout<<perm_k<<"  "<< material_data.fluid_viscosity<<" ";
             const double diffusion_coeff = (perm_k / material_data.fluid_viscosity);
-            const double rhs_coeff = compress/(1-phi);
+            const double rhs_coeff = compress/((1-phi)*(1-phi));
             const double mass_matrix_coeff = rhs_coeff;
 
             const double additional_overburden = 9.8*bulk_deposit*-1*sedimentation_rates[q_point]; //[M L^-1 T^-3]
