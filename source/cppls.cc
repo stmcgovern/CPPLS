@@ -1094,7 +1094,7 @@ void LayerMovementProblem<dim>::assemble_F()
 
             Assert(0 <= phi, ExcInternalError());
             Assert(phi < 1, ExcInternalError());
-            const double temp_old_overburden= old_overburden_at_quad[q_point]-2200*min_h;
+            const double temp_old_overburden= overburden_at_quad[q_point]- (9.8*1685*min_h);//[units ok]
 
             const double old_phi = porosity(old_pressure_at_quad[q_point], /*temp_old_overburden*/ old_overburden_at_quad[q_point], initial_porosity,
                                             compaction_coefficient, old_hydrostatic, material_id);
@@ -1102,14 +1102,23 @@ void LayerMovementProblem<dim>::assemble_F()
 
             Assert(0 <= old_phi, ExcInternalError());
             Assert(old_phi < 1, ExcInternalError());
-            //pcout<<"old_phi"<<old_phi<<" and "<<od<<std::endl;
+            pcout<<"old: "<<old_pressure_at_quad[q_point]<<" "<<temp_old_overburden<<" "
+                <<old_overburden_at_quad[q_point]<<" "<< old_hydrostatic<<" "<<old_phi<<std::endl;
+            pcout<<"now: "<<pressure_at_quad[q_point]<<" "<<overburden_at_quad[q_point]<<" "
+                <<hydrostatic<<" "<< phi<<std::endl;
+
              double dphidt = (phi - old_phi) / time_step;
+             pcout<<"dphi: "<<phi - old_phi<<std::endl;
+//            if(abs(dphidt)<1e-16)
+//              {              }
+//            else
+//              {
+//                pcout<<"  "<<dphidt<<"  ";
+//              }
 
+            Assert(dphidt < 0.1, ExcInternalError());
 
-
-            //Assert(dphidt < 0.1, ExcInternalError());
-
-            rhs_at_quad[q_point] = 1*dphidt / (1 - phi);
+            rhs_at_quad[q_point] = -1*dphidt /(1. - phi);// ((1. - phi)*( 1.- phi));
 
             for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j)
@@ -1163,7 +1172,7 @@ void LayerMovementProblem<dim>::solve_F()
 
     LA::MPI::Vector completely_distributed_solution(locally_owned_dofs, mpi_communicator);
 
-    SolverControl solver_control(dof_handler.n_dofs(), 1e-6 * rhs_F.l2_norm());
+    SolverControl solver_control(dof_handler.n_dofs(), 1e-12 * rhs_F.l2_norm());
     //  LA::SolverBicgstab solver(solver_control, mpi_communicator);
     LA::SolverGMRES solver(solver_control, mpi_communicator);
     //  LA::MPI::PreconditionAMG preconditioner;
