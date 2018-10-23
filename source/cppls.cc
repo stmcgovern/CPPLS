@@ -916,11 +916,6 @@ void LayerMovementProblem<dim>::assemble_Sigma()
             const double rho_b = bulkdensity(phi, material_data.fluid_density, rock_density);
 
             rhs_at_quad[q_point] = 9.81 * rho_b;
-            if(material_id==0)
-              {
-                rhs_at_quad[q_point] =0;
-              }
-
 
 
 
@@ -2232,7 +2227,7 @@ void LayerMovementProblem<dim>::advance_old_vectors( LA::MPI::Vector &locally_re
 
     LA::MPI::Vector completely_distributed_solution(locally_owned_dofs, mpi_communicator);
 
-    SolverControl solver_control(dof_handler.n_dofs(), 1e-6 * rhs_terms.l2_norm());
+    SolverControl solver_control(dof_handler.n_dofs(), 1e-12 * rhs_terms.l2_norm());
     LA::SolverCG solver(solver_control, mpi_communicator);
 
     //LA::MPI::PreconditionAMG preconditioner;
