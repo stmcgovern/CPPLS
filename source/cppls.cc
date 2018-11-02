@@ -350,7 +350,6 @@ void LayerMovementProblem<dim>::set_physical_functions()
 {
   //The purpose of this method is to set, according to the parameter file what compaction rule
   //and associated compressibility, derivative with respect to VES, to use in the assembly methods
-  pcout<<"  "<<parameters.linear_in_void_ratio<<std::endl;
   if(parameters.linear_in_void_ratio)
   {
       pcout<<"Using Linear in Void Ratio Compaction Law"<<std::endl;
@@ -1829,19 +1828,38 @@ void LayerMovementProblem<dim>::output_vectors()
 template <int dim>
 int LayerMovementProblem<dim>::active_layers_in_time (double time)
 {
-  //equitemporal division over layers
-  for (int i=1;i<=n_layers;++i)
+//  //TODO bool flag
+//  //equitemporal division over layers
+//  for (int i=1;i<=n_layers;++i)
+//    {
+//      double current_fraction= static_cast<double>(i)/(n_layers);
+//      if(time<(current_fraction*final_time))
+//        {
+//          pcout<<"layer"<<i<<std::endl;
+//          active_layer_id=i;
+//          return i;
+
+//        }
+
+//    }
+  //draw from parameter file
+  //Do time division by specified depositional period.
+  //std::vector<double> sum_phases(n_layers, 0);
+  double sum_depositional_times=0;
+  for (int i=1; i<=n_layers; ++i)
     {
-      double current_fraction= static_cast<double>(i)/(n_layers);
-      if(time<(current_fraction*final_time))
+      double layer_time = material_data.get_depositional_period(i);
+      sum_depositional_times+=layer_time*CPPLS::seconds_in_Myear;
+      if(time<sum_depositional_times)
         {
           pcout<<"layer"<<i<<std::endl;
           active_layer_id=i;
           return i;
-
         }
 
     }
+
+
 
 }
 
@@ -2323,10 +2341,11 @@ void LayerMovementProblem<dim>::compute_hydrostatic_thicknesses()
 
 }
 
+
 template <int dim>
 void LayerMovementProblem<dim>::run()
 {
-  constexpr double seconds_in_Myear{60*60*24*365.25*1e6};
+
   pcout<<"CPPLS running in "<<dim<<" dimensions"<<std::endl;
   sec_in_year=60*60*24*365.25;
   grav_acc=9.81;
@@ -2334,6 +2353,7 @@ void LayerMovementProblem<dim>::run()
 
     //this sets porosity, compressibility, permeability based on choices in parameter file
     set_physical_functions();
+
 
     // common mesh
     setup_geometry();

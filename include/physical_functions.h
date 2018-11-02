@@ -54,7 +54,8 @@ using namespace dealii;
 //  return (compaction_coefficient* current_porosity);
 //}
 
-
+constexpr double seconds_in_Myear{60*60*24*365.25*1e6};
+constexpr double grav_acc{9.81};
 
 
 

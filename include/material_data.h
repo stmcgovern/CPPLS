@@ -56,6 +56,10 @@ public:
     {
         return compaction_coefficient[material_id];
     }
+    double get_depositional_period (const unsigned int material_id) const
+    {
+        return depositional_periods[material_id];
+    }
 private:
     const std::vector<double> heat_capacity
     {0,1000,2.01,1.40,2.5, 1.23,2.01,1.40,2.5}; // J/ kg / K
@@ -69,7 +73,9 @@ private:
     {2720,2720.,2720, 2720,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020, 2720,2720,2320,2820,3020}; // kg/m^3
     //This is the compaction coefficient that appears in the compaction law
     const std::vector<double> compaction_coefficient
-    {0,5e-8,1e-9,1e-10,5e-10, 1e-9,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Pa^-1
+    {1e-200,8e-8,4e-8,3e-8,5e-8, 1e-9,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Pa^-1
+    const std::vector<double> depositional_periods
+    {0,0.2,0.3,0.125,0.375,9 ,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Ma [T]
 
 };
 }
