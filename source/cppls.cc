@@ -154,6 +154,7 @@ private:
 
     // Speed function
     LA::MPI::Vector locally_relevant_solution_F;
+    LA::MPI::Vector old_locally_relevant_solution_F;
 
     // this is 0 now
     LA::MPI::Vector locally_relevant_solution_Wxy;
@@ -356,7 +357,7 @@ void LayerMovementProblem<dim>::set_physical_functions()
                   {
                     if(material_id ==0) {return initial_porosity;}
                     //below is LINEAR IN VOID RATIO
-                     const double init_void_ratio = initial_porosity/(1-initial_porosity);
+                     const double init_void_ratio = initial_porosity/(1.-initial_porosity);
                      const double computed_void_ratio = init_void_ratio - compaction_coefficient*(overburden - pressure - hydrostatic);
 
                      // Assert(init_void_ratio >= computed_void_ratio, ExcInternalError());
@@ -367,7 +368,7 @@ void LayerMovementProblem<dim>::set_physical_functions()
       compressibility = []( const double current_porosity, const double compaction_coefficient, const unsigned int material_id)
          {
           if(material_id ==0) {return 0.;}
-           return ((1-current_porosity)*(1-current_porosity) * compaction_coefficient);
+           return ((1.-current_porosity)*(1.-current_porosity) * compaction_coefficient);
           };
   }
 
@@ -420,6 +421,11 @@ void LayerMovementProblem<dim>::setup_geometry()
         std::vector<unsigned int> repetitions(dim);
         if(dim==2)
           {
+            if(parameters.x_length >= parameters.z_length)
+              {
+
+
+
             //Assuming that this is an integer
             repetitions[0] = parameters.x_length / parameters.z_length;
             repetitions[1] = 1;
@@ -427,18 +433,46 @@ void LayerMovementProblem<dim>::setup_geometry()
             Point<dim> bottom_left (0,0);
             Point<dim> top_right (parameters.x_length,parameters.z_length);
             GridGenerator::subdivided_hyper_rectangle(triangulation, repetitions, bottom_left, top_right, true);
+              }
+            else
+              {
+                //Assuming that this is an integer
+                repetitions[0] = 1;
+                repetitions[1] = parameters.z_length / parameters.x_length;
+
+                Point<dim> bottom_left (0,0);
+                Point<dim> top_right (parameters.x_length,parameters.z_length);
+                GridGenerator::subdivided_hyper_rectangle(triangulation, repetitions, bottom_left, top_right, true);
+              }
+
 
           }
         else if(dim==3)
           {
-            //Assuming that these are integers
-            repetitions[0] = parameters.x_length / parameters.z_length;
-            repetitions[1] = parameters.y_length / parameters.z_length;
-            repetitions[2] = 1;
+            if(parameters.x_length >= parameters.z_length)
+              {
 
-            Point<dim> bottom_left (0,0,0);
-            Point<dim> top_right (parameters.x_length, parameters.y_length, parameters.z_length );
-            GridGenerator::subdivided_hyper_rectangle(triangulation, repetitions, bottom_left, top_right, true);
+              //Assuming that these are integers
+              repetitions[0] = parameters.x_length / parameters.z_length;
+              repetitions[1] = parameters.y_length / parameters.z_length;
+              repetitions[2] = 1;
+
+              Point<dim> bottom_left (0,0,0);
+              Point<dim> top_right (parameters.x_length, parameters.y_length, parameters.z_length );
+              GridGenerator::subdivided_hyper_rectangle(triangulation, repetitions, bottom_left, top_right, true);
+              }
+            else
+              {
+                //Assuming that this is an integer
+                repetitions[0] = 1;
+                repetitions[1] = 1;
+                repetitions[2] = parameters.z_length / parameters.x_length;
+
+                Point<dim> bottom_left (0,0, 0);
+                Point<dim> top_right (parameters.x_length, parameters.y_length, parameters.z_length);
+                GridGenerator::subdivided_hyper_rectangle(triangulation, repetitions, bottom_left, top_right, true);
+              }
+
 
           }
           else
@@ -640,7 +674,7 @@ void LayerMovementProblem<dim>::setup_system_Sigma()
     // vector setup
     locally_relevant_solution_Sigma.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
     old_locally_relevant_solution_Sigma.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
-    //temp_locally_relevant_solution_Sigma.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+    temp_locally_relevant_solution_Sigma.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
 
     rhs_Sigma.reinit(locally_owned_dofs, mpi_communicator);
 
@@ -680,6 +714,8 @@ void LayerMovementProblem<dim>::setup_system_F()
 
     // vector setup
     locally_relevant_solution_F.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+
+    //old_locally_relevant_solution_F.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
 
     completely_distributed_solution_F.reinit(locally_owned_dofs, mpi_communicator);
 
@@ -736,8 +772,8 @@ void LayerMovementProblem<dim>::setup_system_LS()
     // non-vertical zero vector to feed into LevelSetSolver
     locally_relevant_solution_Wxy.reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
 
-    locally_relevant_solution_F.reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
-    completely_distributed_solution_F.reinit(locally_owned_dofs_LS, mpi_communicator);
+    //locally_relevant_solution_F.reinit(locally_owned_dofs_LS, locally_relevant_dofs_LS, mpi_communicator);
+    //completely_distributed_solution_F.reinit(locally_owned_dofs_LS, mpi_communicator);
 
     // constraints
 
@@ -764,6 +800,8 @@ void LayerMovementProblem<dim>::setup_system_shift()
   constraints_shift.reinit(locally_relevant_dofs);
 
   DoFTools::make_hanging_node_constraints(dof_handler, constraints_shift);
+  VectorTools::interpolate_boundary_values(dof_handler, dim*2-1, ZeroFunction<dim>(),
+          constraints_shift);
 
   constraints_shift.close();
 
@@ -778,7 +816,6 @@ void LayerMovementProblem<dim>::setup_system_shift()
 
   system_B_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp, mpi_communicator);
   mass_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp, mpi_communicator);
-
 
 }
 
@@ -815,6 +852,7 @@ void LayerMovementProblem<dim>::initial_conditions()
 
     VectorTools::interpolate(dof_handler_LS, Initial_LS<dim>(min_h, parameters.box_size),
                              completely_distributed_solution_LS_0);
+
     constraints_LS.distribute(completely_distributed_solution_LS_0);
     locally_relevant_solution_LS_0 = completely_distributed_solution_LS_0;
 
@@ -828,7 +866,7 @@ void LayerMovementProblem<dim>::get_boundary_values_LS(std::vector<unsigned int>
     unsigned int boundary_id = 0;
 
     // set_boundary_inlet();
-    boundary_id = 10; // inlet
+   // boundary_id = 10; // inlet
     // we define the inlet to be at the top, i.e. boundary_id=3
     //the "top" has boundary_id = dim*2-1; (so 3 for 2d, 5 for 3d)
     VectorTools::interpolate_boundary_values(dof_handler_LS, dim*2-1, BoundaryPhi<dim>(1.0), map_boundary_values_LS);
@@ -887,7 +925,9 @@ void LayerMovementProblem<dim>::assemble_Sigma()
 
         material_id=cell->material_id();
         fe_values.reinit(cell);
+
         fe_values.get_function_values(temp_locally_relevant_solution_P, pressure_at_quad);
+
         fe_values.get_function_values(temp_locally_relevant_solution_Sigma, overburden_at_quad);
 
         // TODO consider moving these properties to the quad point level, not just cell level
@@ -1041,6 +1081,8 @@ void LayerMovementProblem<dim>::assemble_F()
     std::vector<double> pressure_at_quad(n_q_points);
     std::vector<double> old_pressure_at_quad(n_q_points);
 
+    std::vector<double> speed_at_quad(n_q_points);
+
     Point<dim> point_for_depth;
     SedimentationRate<dim> sedRate(current_time, parameters);
 
@@ -1060,7 +1102,7 @@ void LayerMovementProblem<dim>::assemble_F()
         material_id=cell->material_id();
 
         fe_values.reinit(cell);
-
+        fe_values.get_function_values(old_locally_relevant_solution_F, speed_at_quad);
         fe_values.get_function_values(locally_relevant_solution_P, pressure_at_quad);
         fe_values.get_function_values(locally_relevant_solution_Sigma, overburden_at_quad);
         fe_values.get_function_values(old_locally_relevant_solution_P, old_pressure_at_quad);
@@ -1075,14 +1117,16 @@ void LayerMovementProblem<dim>::assemble_F()
 
         cell_rhs = 0;
         cell_matrix = 0;
-        const double delta = 1 * cell->diameter();
+        const double delta = 0.5 * cell->diameter();
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
             point_for_depth = fe_values.quadrature_point(q_point);
             const double hydrostatic = 9.81 * material_data.fluid_density *
                                        (parameters.box_size - point_for_depth[dim-1]);
             const double old_hydrostatic = 9.81 * material_data.fluid_density *
-                                       (parameters.box_size - (point_for_depth[dim-1]+min_h));
+                                       //(parameters.box_size - (point_for_depth[dim-1]+(-1.*sedimentation_rate[q_point]*time_step)));//(old_speed_at_quad[q_point]*time_step)));
+                                      (parameters.box_size - (point_for_depth[dim-1]+(-1.*speed_at_quad[q_point]*time_step)));//()));
+
             Assert(0 < hydrostatic, ExcInternalError());
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic, material_id);
@@ -1094,9 +1138,9 @@ void LayerMovementProblem<dim>::assemble_F()
             const double active_rock_density = material_data.get_solid_density(active_layer_id);
             const double active_init_porosity = material_data.get_surface_porosity(active_layer_id);
             const double bulk_deposit=bulkdensity (active_init_porosity, material_data.fluid_density, active_rock_density);
-           // pcout<<"b"<<bulk_deposit<<std::endl;
+            //pcout<<"b"<<bulk_deposit<<std::endl;
 
-            const double temp_old_overburden= overburden_at_quad[q_point]-9.8*bulk_deposit*-1*sedimentation_rate[q_point]*time_step;
+            const double temp_old_overburden= overburden_at_quad[q_point]-9.81*bulk_deposit*-1.*sedimentation_rate[q_point]*time_step;
 
 
             const double old_phi = porosity(old_pressure_at_quad[q_point], temp_old_overburden/* old_overburden_at_quad[q_point]*/, initial_porosity,
@@ -1105,17 +1149,31 @@ void LayerMovementProblem<dim>::assemble_F()
           //  pcout<<"old_phi"<<old_phi<<std::endl;
             Assert(0 <= old_phi, ExcInternalError());
             Assert(old_phi < 1, ExcInternalError());
-//            pcout<<"old: "<<old_pressure_at_quad[q_point]<<" "<<temp_old_overburden<<" "
-//                <<old_overburden_at_quad[q_point]<<" "<< old_hydrostatic<<" "<<old_phi<<std::endl;
-//            pcout<<"now: "<<pressure_at_quad[q_point]<<" "<<overburden_at_quad[q_point]<<" "
-//                <<hydrostatic<<" "<< phi<<std::endl;
+//            pcout<<std::endl<<"cell"<<cell->center()<<" "<<material_id<<std::endl;
+//            pcout<<"min_h"<<sedimentation_rate[q_point]*time_step<<std::endl;
+//            pcout<<"min_h_compac"<<speed_at_quad[q_point]*time_step<<std::endl;
+//            pcout<<"min_h_compac"<<speed_at_quad[q_point]<<std::endl;
+//            pcout<<"old: "<<temp_old_overburden<<" "<<old_pressure_at_quad[q_point]<<" "<<old_hydrostatic<<std::endl;
+//            pcout<<"old_VES: "<<temp_old_overburden-old_pressure_at_quad[q_point]-old_hydrostatic<<std::endl;
+//            pcout<<"now: "<<overburden_at_quad[q_point]<<" "<<pressure_at_quad[q_point]<<" "<<hydrostatic<<std::endl;
 
+//            pcout<<"now_VES: "<<overburden_at_quad[q_point]-pressure_at_quad[q_point]-hydrostatic<<std::endl;
              double dphidt = (phi - old_phi) / time_step;
-//             pcout<<"dphi: "<<phi - old_phi<<std::endl;
+//            pcout<<"dphi: "<<phi - old_phi<<std::endl;
+//            pcout<<"dphidt: "<<dphidt<<std::endl;
 
             Assert(dphidt < 0.1, ExcInternalError());
+            const double VES=overburden_at_quad[q_point]-pressure_at_quad[q_point]-hydrostatic;
+            const double old_VES=temp_old_overburden-old_pressure_at_quad[q_point]-old_hydrostatic;
 
-            rhs_at_quad[q_point] = -1*dphidt /(1. - phi);
+
+            rhs_at_quad[q_point] = -1.*dphidt /(1. - phi);
+           //
+         //   pcout<<"dphidt: "<<rhs_at_quad[q_point]<<std::endl;
+           // rhs_at_quad[q_point] = (1./(1. - phi))*compaction_coefficient*(1. - phi)*(1. - phi)*(VES-old_VES)/time_step;
+//            pcout<<"other_rhs: "<<rhs_at_quad[q_point]<<std::endl;
+            //rhs_at_quad[q_point] = (1./(1. - phi))*compaction_coefficient*phi*(VES-old_VES)/time_step;
+
 
             for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j)
@@ -1340,11 +1398,15 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             const double hydrostatic = 9.81 * material_data.fluid_density *
                                        (parameters.box_size - point_for_depth[dim-1]);
             const double old_hydrostatic = 9.81 * material_data.fluid_density *
-                                       (parameters.box_size - point_for_depth[dim-1]-(time_step*-1*sedimentation_rates[q_point]));
+                                       (parameters.box_size - point_for_depth[dim-1]-(time_step*-1.*sedimentation_rates[q_point]));
+            //pcout<<"hydro"<<hydrostatic<<" old_hydro"<<old_hydrostatic<<std::endl;
             Assert(0 < hydrostatic, ExcInternalError());
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic, material_id);
-
+//            if(phi>0.)
+//              {
+//            pcout<<"phi"<<phi<<std::endl;
+//            }
            const double compress = compressibility(phi, compaction_coefficient, material_id);
 
 
@@ -1369,19 +1431,21 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             //pcout<<"dphidt:"<<dphidt<<std::endl;
             //pcout<<perm_k<<"  "<< material_data.fluid_viscosity<<" ";
             const double diffusion_coeff = (perm_k / material_data.fluid_viscosity);
-            const double rhs_coeff = compress/((1-phi)*(1-phi));
+            const double rhs_coeff = compress/(1.-phi);
             const double mass_matrix_coeff = rhs_coeff;
+           // pcout<<"rhs_Ccoeff"<<rhs_coeff<<std::endl;
+            const double additional_overburden = 9.81*bulk_deposit*-1.*sedimentation_rates[q_point]; //[M L^-1 T^-3]
 
-            const double additional_overburden = 9.8*bulk_deposit*-1*sedimentation_rates[q_point]; //[M L^-1 T^-3]
-          //  pcout<<"additional sigma"<<additional_overburden<<std::endl;
+            //pcout<<"additional sigma"<<additional_overburden<<std::endl;
+
 
             //pcout<<"compress"<<compress<<std::endl;
 
             //const double rhs_at_quad =2*(9.8 * (bulk_deposit - material_data.fluid_density)* -1*sedimentation_rates[q_point]);
-            const double rhs_at_quad = additional_overburden - (9.8 * material_data.fluid_density* -1*sedimentation_rates[q_point]);
+            const double rhs_at_quad = additional_overburden - (9.81 * material_data.fluid_density* -1.*sedimentation_rates[q_point]);
             //(9.8 * (2220- material_data.fluid_density)* -1*sedimentation_rates[q_point]);
                //(overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / ( time_step) +
-                               //      (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]);
+//                               //      (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]);
 //            pcout<<"rhs "<<rhs_at_quad<<std::endl;
 //           pcout<<"dsigma "<<overburden_at_quad[q_point] - old_overburden_at_quad[q_point]<<std::endl;
 //            pcout<<"artificial: "<<(9.8 * (2220- material_data.fluid_density)* -1*sedimentation_rates[q_point])<<std::endl;
@@ -1438,13 +1502,13 @@ void LayerMovementProblem<dim>::forge_system_P()
 
     mass_matrix_P.vmult(system_rhs_P, old_locally_relevant_solution_P);
 
-    laplace_matrix_P.vmult(tmp, old_locally_relevant_solution_P);
+    //laplace_matrix_P.vmult(tmp, old_locally_relevant_solution_P);
     //  pcout << "laplace symmetric: " << laplace_matrix.is_symmetric()<<std::endl;
-    system_rhs_P.add(-(1 - theta) * time_step, tmp);
+    //system_rhs_P.add(-(1. - theta) * time_step, tmp);
 
     forcing_terms.add(time_step * theta, rhs_P);
 
-    forcing_terms.add(time_step * (1 - theta), old_rhs_P);
+   // forcing_terms.add(time_step * (1. - theta), old_rhs_P);
 
     system_rhs_P += forcing_terms;
     system_rhs_P.compress (VectorOperation::add);
@@ -1929,7 +1993,7 @@ evaluate_vector_field
       if (parameters.linear_in_void_ratio)
       {
           //below is LINEAR IN VOID RATIO
-           const double init_void_ratio = initial_porosity/(1-initial_porosity);
+           const double init_void_ratio = initial_porosity/(1.-initial_porosity);
            const double computed_void_ratio = init_void_ratio - compaction_coefficient*(sigma - overpressure - hydrostatic);
 
            // Assert(init_void_ratio >= computed_void_ratio, ExcInternalError());
@@ -1941,7 +2005,7 @@ evaluate_vector_field
       else
       {
             porosity_return_value=initial_porosity *
-                (std::exp(-1 * compaction_coefficient * (sigma - overpressure - hydrostatic)));
+                (std::exp(-1. * compaction_coefficient * (sigma - overpressure - hydrostatic)));
       }
        if(mat_id ==0) {porosity_return_value=initial_porosity;}
       //porosity
@@ -2152,6 +2216,7 @@ void LayerMovementProblem<dim>::prepare_advance_old_vectors()
 
         advection_field.value_list(fe_values.get_quadrature_points(), advection_directions);
         fe_values.get_function_values(locally_relevant_solution_F, speed_at_quad);
+
         for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
         {
             for (unsigned int i=0; i<dofs_per_cell; ++i)
@@ -2206,31 +2271,40 @@ void LayerMovementProblem<dim>::advance_old_vectors( LA::MPI::Vector &locally_re
 
 
     LA::MPI::Vector tmp;
+    LA::MPI::Vector tmp2;
     LA::MPI::Vector rhs_terms;
-
+    LA::MPI::Vector rhs;
     tmp.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+    tmp2.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
 
-    rhs_terms.reinit(locally_owned_dofs, mpi_communicator);
+    rhs_terms.reinit(locally_owned_dofs,locally_relevant_dofs, mpi_communicator);
+    rhs.reinit(locally_owned_dofs, mpi_communicator);
 
 
     //M*U
-    mass_matrix.vmult(tmp, locally_relevant_vector);
+    mass_matrix.vmult(tmp, old_locally_relevant_solution_P);
 
-    rhs_terms.add(1, tmp);
+//    rhs_terms.add(1, tmp);
+//    rhs_terms.compress(VectorOperation::add);
 
+    rhs=tmp;
     //B*U
-
-    system_B_matrix.vmult(tmp, locally_relevant_vector);
-
-    rhs_terms.add(1, tmp);
-
+    //tmp.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+    system_B_matrix.vmult(tmp2, old_locally_relevant_solution_P);
+    rhs += tmp2;
+//    system_B_matrix.compress(VectorOperation::add);
+//    rhs_terms.add(1, tmp);
+//    rhs_terms.compress(VectorOperation::add);
+    //rhs=rhs_terms;
 
     LA::MPI::Vector completely_distributed_solution(locally_owned_dofs, mpi_communicator);
 
-    SolverControl solver_control(dof_handler.n_dofs(), 1e-12 * rhs_terms.l2_norm());
-    LA::SolverCG solver(solver_control, mpi_communicator);
+    SolverControl solver_control(dof_handler.n_dofs(), 1e-12 * rhs.l2_norm());
+    //LA::SolverCG solver(solver_control, mpi_communicator);
+    LA::SolverGMRES solver(solver_control, mpi_communicator);
 
     //LA::MPI::PreconditionAMG preconditioner;
+    //LA::MPI::PreconditionAMG::AdditionalData data;
     //LA::MPI::PreconditionSSOR preconditioner;
     //LA::MPI::PreconditionSSOR::AdditionalData data;
     PETScWrappers::PreconditionBlockJacobi preconditioner;
@@ -2238,13 +2312,14 @@ void LayerMovementProblem<dim>::advance_old_vectors( LA::MPI::Vector &locally_re
     //data.symmetric_operator = true;
     preconditioner.initialize(mass_matrix, data);
 
-    solver.solve(mass_matrix, completely_distributed_solution, rhs_terms, preconditioner);
+    solver.solve(mass_matrix, completely_distributed_solution, rhs, preconditioner);
 
     pcout << " Advance vector mass matrix system solved in " << solver_control.last_step() << " iterations." << std::endl;
 
-    constraints_shift.distribute(completely_distributed_solution);
+   constraints_shift.distribute(completely_distributed_solution);
 
-   locally_relevant_vector = completely_distributed_solution;
+   old_locally_relevant_solution_P = completely_distributed_solution;
+   //old_locally_relevant_solution_P.compress(VectorOperation::add);
 
 
 }
@@ -2278,7 +2353,8 @@ void LayerMovementProblem<dim>::run()
     setup_system_P();
     setup_system_T();
     setup_system_Sigma();
-    //setup_system_F();
+    setup_system_F();
+    old_locally_relevant_solution_F.reinit(locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
     // the solution of this system is done in the LevelSetSolver class
     setup_system_LS();
     setup_system_shift();
@@ -2295,7 +2371,7 @@ void LayerMovementProblem<dim>::run()
     const unsigned int maxiter = parameters.maxiter;
 
     //const SedimentationRate SedRate(parameters);
-    const double base_sedimentation_rate = parameters.base_sedimentation_rate;
+    const double base_sedimentation_rate = 1000./seconds_in_Myear;// ;parameters.base_sedimentation_rate;
     // initialize level set solver
     // we use some hardcode defaults for now
 
@@ -2304,10 +2380,10 @@ void LayerMovementProblem<dim>::run()
     //We make the following choice. We set the cfl condition to 1/2 and then we have the
     //Level set run twice. So the dt for the level set solver is dt_physics=2*dt_ls
 
-    const double cfl = 0.5; //parameters.cfl;
+    const double cfl = 1./3;//0.5; //parameters.cfl;
     const double umax = base_sedimentation_rate;  //max_sedRate
     const double time_step_ls = cfl * min_h / umax;
-    time_step=2*time_step_ls;
+    time_step=3*time_step_ls;
     // pcout<<"min_h"<<min_h;
 
 
@@ -2316,6 +2392,7 @@ void LayerMovementProblem<dim>::run()
     const bool verbose = true;
     std::string ALGORITHM = "MPP_uH";
     const unsigned int TIME_INTEGRATION = 1; // corresponds to SSP33
+   // const unsigned int TIME_INTEGRATION = 0; // corresponds to explicit euler
 
 
     n_layers=parameters.n_layers;
@@ -2325,7 +2402,7 @@ void LayerMovementProblem<dim>::run()
     // BOUNDARY CONDITIONS FOR LS
     get_boundary_values_LS(boundary_values_id_LS, boundary_values_LS);
 
-    locally_relevant_solution_F = -1*base_sedimentation_rate;
+    locally_relevant_solution_F = -1.*base_sedimentation_rate;
 
 
     //assume locally_relevant_solution_LS_0 is a good initial value for all level sets
@@ -2358,7 +2435,7 @@ void LayerMovementProblem<dim>::run()
     timestep_number = 0;
     for (double time = time_step; time <= final_time; time += time_step, ++timestep_number) {
         pcout << "Time step " << timestep_number << " at t=" << time <<"s: "<<time/seconds_in_Myear<<"Ma"<< std::endl;
-        pcout<< " % complete:"<<100*(timestep_number*time_step)/final_time<<std::endl; //for constant time_step
+        pcout<< " % complete:"<<100.*(timestep_number*time_step)/final_time<<std::endl; //for constant time_step
         Assert (time_step< final_time, ExcNotImplemented());
 
         current_time=time;
@@ -2370,8 +2447,11 @@ void LayerMovementProblem<dim>::run()
         // Level set computation
         // original level_set_solver.set_velocity(locally_relevant_solution_u, locally_relevant_solution_v);
          n_active_layers=active_layers_in_time(time);
+         display_vectors();
         //We evolve the ls TWO times  per time_step for the physics
-         for(int h=0;h<2;++h)
+         //DEBUG CONSTANT SPEED
+         //locally_relevant_solution_F = -1.*base_sedimentation_rate;
+         for(int h=0;h<3;++h)
           {
             TimerOutput::Scope t(computing_timer, "Total LS");
             for(int i=0; i<n_active_layers; ++i)
@@ -2388,6 +2468,7 @@ void LayerMovementProblem<dim>::run()
                 layers[i]->get_unp1(locally_relevant_solution_LS_0);
                 (*layers_solutions[i])=locally_relevant_solution_LS_0;
             }
+            display_vectors();
           }
 
         // set material ids based on locally_relevant_solution_LS
@@ -2455,6 +2536,8 @@ void LayerMovementProblem<dim>::run()
             forge_system_T();
            solve_time_step_T();
           }
+        old_locally_relevant_solution_F=locally_relevant_solution_F;
+
         setup_system_F();
         assemble_F();
         solve_F();

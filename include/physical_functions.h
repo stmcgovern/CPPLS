@@ -65,20 +65,20 @@ double permeability(const double porosity, const double initial_permeability, co
       return initial_permeability;
     }
     //below is linear in VOID RATIO
-    const double init_void_ratio = initial_porosity/(1-initial_porosity);
-    const double void_ratio = (porosity/ (1-porosity));
-    return (initial_permeability* (1+ void_ratio)/(1+init_void_ratio));
+    const double init_void_ratio = initial_porosity/(1.-initial_porosity);
+    const double void_ratio = (porosity/ (1.-porosity));
+    return (initial_permeability* (1.+ void_ratio)/(1.+init_void_ratio));
 
 
     //uncomment below for the linear in POROSITY
-    //return (initial_permeability * (1 - initial_porosity) / (1 - porosity));
+    //return (initial_permeability * (1. - initial_porosity) / (1. - porosity));
 }
 
 // These functions are definitional
 
 double bulkdensity(const double porosity, const double fluid_density, const double solid_density)
 {
-    return (porosity * fluid_density + (1 - porosity) * solid_density);
+    return (porosity * fluid_density + (1. - porosity) * solid_density);
 }
 // Note that our "pressure" variable is the OVERPRESSURE, not the pore pressure
 double VES(const double overburden, const double pressure, const double hydrostatic, const int material)
@@ -89,7 +89,7 @@ double VES(const double overburden, const double pressure, const double hydrosta
 
 double bulkheatcapacity(const double porosity, const double fluid_heat_capacity, const double solid_heat_capacity)
 {
-    return (porosity * fluid_heat_capacity + (1 - porosity) * solid_heat_capacity);
+    return (porosity * fluid_heat_capacity + (1. - porosity) * solid_heat_capacity);
 }
 
 
@@ -150,7 +150,7 @@ template <int dim>
 double SedimentationRate<dim>::value(const Point<dim>& p, const unsigned int) const
 {
 
-    double return_value = 10;
+    double return_value = 10.;
     const double time = this->get_time();
     const double magnify=0.2;
 
@@ -243,15 +243,15 @@ Tensor<1, dim> AdvectionField<dim>::value(const Point<dim>& p) const
         break;
     }
     case 2: {
-          value[0] = 0;
-          value[1] = -1;
+          value[0] = 0.;
+          value[1] = -1.;
           break;
 
         }
     case 3:{
-          value[0] = 0;
-          value[1] = 0;
-          value[2] = -1;
+          value[0] = 0.;
+          value[1] = 0.;
+          value[2] = -1.;
          break;
 
 
@@ -303,7 +303,7 @@ double Initial_LS<dim>::value(const Point<dim>& p, const unsigned int) const
         // std::cout<<std::tanh((y- 0.9)/sharpness)<<" "<<std::endl;
 
         //return_value = 0.5*(1+ std::tanh((y - (box_size_z - (box_size_z / 100))) / sharpness));
-        return_value = 0.5*(1+ std::tanh((y - (box_size_z )) / sharpness));
+        return_value = 0.5*(1+ std::tanh((y - (box_size_z )) / (sharpness)));
 
         Assert (return_value <= 1 ,ExcInternalError());
         Assert (return_value >= -1 ,ExcInternalError());
@@ -318,7 +318,8 @@ double Initial_LS<dim>::value(const Point<dim>& p, const unsigned int) const
 //        return 0.5 * (-std::tanh((y - 0.3) / sharpness) * std::tanh((y - 0.35) / sharpness) + 1) *
 //               (-std::tanh((x - 0.02) / sharpness) + 1) -
 //               1;
-        return_value = 0.5*(1+ std::tanh((z - (box_size_z - (box_size_z / 100))) / sharpness));
+        return_value = 0.5*(1+ std::tanh((z - (box_size_z)) / (sharpness/2)));
+
         Assert (return_value <= 1 ,ExcInternalError());
         Assert (return_value >= -1 ,ExcInternalError());
 

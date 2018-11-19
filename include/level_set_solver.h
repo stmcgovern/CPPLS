@@ -438,7 +438,7 @@ void LevelSetSolver<dim>::nth_time_step()
 template <int dim>
 void LevelSetSolver<dim>::setup()
 {
-    solver_tolerance=1E-6;
+    solver_tolerance=1E-12;
     degree_MAX = std::max(degree_LS,degree_U);
     ////////////////////////////
     // SETUP FOR DOF HANDLERS //
@@ -1564,7 +1564,7 @@ void LevelSetSolver<dim>::solve(const ConstraintMatrix &constraints,
   output_name_here +=Utilities::int_to_string(interface_number);
   TimerOutput::Scope t(computing_timer, output_name_here);
     // all vectors are NON-GHOSTED
-    SolverControl solver_control (dof_handler_LS.n_dofs(), solver_tolerance);
+    SolverControl solver_control (dof_handler_LS.n_dofs(), solver_tolerance*rhs.l2_norm());
     PETScWrappers::SolverCG solver(solver_control, mpi_communicator);
     constraints.distribute (completely_distributed_solution);
     solver.solve (Matrix, completely_distributed_solution, rhs, *preconditioner);
