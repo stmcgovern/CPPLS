@@ -205,6 +205,8 @@ private:
     int n_layers;
     int active_layer_id;
     double min_h;
+    double grav_acc;
+    double sec_in_year;
 
     // store functions for porosity, permeability and compressibility
     std::function
@@ -944,7 +946,7 @@ void LayerMovementProblem<dim>::assemble_Sigma()
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
             point_for_depth = fe_values.quadrature_point(q_point);
-            const double hydrostatic = 9.81 * material_data.fluid_density *
+            const double hydrostatic = grav_acc * material_data.fluid_density *
                                        (parameters.box_size - point_for_depth[dim-1]);
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                        compaction_coefficient, hydrostatic, material_id);
@@ -955,7 +957,7 @@ void LayerMovementProblem<dim>::assemble_Sigma()
 
             const double rho_b = bulkdensity(phi, material_data.fluid_density, rock_density);
 
-            rhs_at_quad[q_point] = 9.81 * rho_b;
+            rhs_at_quad[q_point] = grav_acc * rho_b;
 
 
 
@@ -1399,9 +1401,9 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             Assert(-0.1 <overburden_at_quad[q_point], ExcInternalError());
 
             point_for_depth = fe_values.quadrature_point(q_point);
-            const double hydrostatic = 9.81 * material_data.fluid_density *
+            const double hydrostatic =grav_acc * material_data.fluid_density *
                                        (parameters.box_size - point_for_depth[dim-1]);
-            const double old_hydrostatic = 9.81 * material_data.fluid_density *
+            const double old_hydrostatic = grav_acc * material_data.fluid_density *
                                        (parameters.box_size - point_for_depth[dim-1]-(time_step*-1.*sedimentation_rates[q_point]));
             //pcout<<"hydro"<<hydrostatic<<" old_hydro"<<old_hydrostatic<<std::endl;
             Assert(0 < hydrostatic, ExcInternalError());
@@ -1434,11 +1436,11 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             //Assert(dphidt <= 0, ExcInternalError());
             //pcout<<"dphidt:"<<dphidt<<std::endl;
             //pcout<<perm_k<<"  "<< material_data.fluid_viscosity<<" ";
-            const double diffusion_coeff = (perm_k / material_data.fluid_viscosity);
+            const double diffusion_coeff = (perm_k / (material_data.fluid_viscosity*sec_in_year) );
             const double rhs_coeff = compress/((1.-phi));
             const double mass_matrix_coeff = rhs_coeff;
            // pcout<<"rhs_Ccoeff"<<rhs_coeff<<std::endl;
-            const double additional_overburden = 9.81*bulk_deposit*-1.*sedimentation_rates[q_point]; //[M L^-1 T^-3]
+            const double additional_overburden = grav_acc*bulk_deposit*-1.*sedimentation_rates[q_point]; //[M L^-1 T^-3]
 
             //pcout<<"additional sigma"<<additional_overburden<<std::endl;
 
@@ -1446,7 +1448,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             //pcout<<"compress"<<compress<<std::endl;
 
             //const double rhs_at_quad =2*(9.8 * (bulk_deposit - material_data.fluid_density)* -1*sedimentation_rates[q_point]);
-            const double rhs_at_quad = additional_overburden - (9.81 * material_data.fluid_density* -1.*sedimentation_rates[q_point]);
+            const double rhs_at_quad = additional_overburden - (grav_acc * material_data.fluid_density* -1.*sedimentation_rates[q_point]);
             //(9.8 * (2220- material_data.fluid_density)* -1*sedimentation_rates[q_point]);
                //(overburden_at_quad[q_point] - old_overburden_at_quad[q_point]) / ( time_step) +
 //                               //      (9.8 * material_data.fluid_density * -1*sedimentation_rates[q_point]);
@@ -1812,8 +1814,8 @@ void LayerMovementProblem<dim>::output_vectors()
     data_out.add_data_vector(locally_relevant_solution_F, "F");
 
     //abuse the temp_locally_relevant_Sigma ghosted vector to output non-ghosted rhs_Sigma
-    temp_locally_relevant_solution_Sigma=rhs_Sigma;
-    data_out.add_data_vector(old_locally_relevant_solution_Sigma, "rhsSigma");
+//    temp_locally_relevant_solution_Sigma=rhs_Sigma;
+//    data_out.add_data_vector(old_locally_relevant_solution_Sigma, "rhsSigma");
 
 //  data_out.add_data_vector(system_rhs_P, "s_rhs_P");
 //  data_out.add_data_vector(rhs_F, "rhs_F" );
@@ -2345,6 +2347,9 @@ void LayerMovementProblem<dim>::run()
 {
   constexpr double seconds_in_Myear{60*60*24*365.25*1e6};
   pcout<<"CPPLS running in "<<dim<<" dimensions"<<std::endl;
+  sec_in_year=60*60*24*365.25;
+  grav_acc=9.81*sec_in_year*sec_in_year;
+
 
     //this sets porosity, compressibility, permeability based on choices in parameter file
     set_physical_functions();
@@ -2375,7 +2380,7 @@ void LayerMovementProblem<dim>::run()
     const unsigned int maxiter = parameters.maxiter;
 
     //const SedimentationRate SedRate(parameters);
-    const double base_sedimentation_rate = 1000./seconds_in_Myear;// ;parameters.base_sedimentation_rate;
+    const double base_sedimentation_rate = 1000./seconds_in_Myear * sec_in_year;// ;parameters.base_sedimentation_rate;
     // initialize level set solver
     // we use some hardcode defaults for now
 
@@ -2438,7 +2443,7 @@ void LayerMovementProblem<dim>::run()
     // TIME STEPPING
     timestep_number = 0;
     for (double time = time_step; time <= final_time; time += time_step, ++timestep_number) {
-        pcout << "Time step " << timestep_number << " at t=" << time <<"s: "<<time/seconds_in_Myear<<"Ma"<< std::endl;
+        pcout << "Time step " << timestep_number << " at t=" << time <<"year: "<<time/seconds_in_Myear<<"Ma"<< std::endl;
         pcout<< " % complete:"<<100.*(timestep_number*time_step)/final_time<<std::endl; //for constant time_step
         Assert (time_step< final_time, ExcNotImplemented());
 

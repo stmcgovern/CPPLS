@@ -17,8 +17,8 @@ subsection Geometry
   set x_length = 50
   set y_length = 50
   set z_length = 1000
-#set the sedimentation rate (m/s)
-  set base_sedimentation_rate = 3.1688e-11
+#set the sedimentation rate (m/year)
+  set base_sedimentation_rate = 0.001
 end
 
 
@@ -47,8 +47,8 @@ end
 subsection Time Step
 #start time of simulation (s)
   set start_time = 0.0
-#end time of simulation (s)  - note: 3.147e13 s = 1 Ma
-  set stop_time = 3.147e13
+#end time of simulation (year)  - note: 3.147e13 s = 1 Ma
+  set stop_time = 1e6
 # for theta scheme for time stepping in P and T,
 # 1/2 -> Crank-Nicolson,  1 -> implicit Euler, 0 -> Explicit Euler
   set theta = 1
