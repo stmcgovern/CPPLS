@@ -204,7 +204,7 @@ private:
     std::vector<std::unique_ptr<LA::MPI::Vector>> layers_solutions;
     int n_layers;
     int active_layer_id;
-
+    double min_h;
 
     // store functions for porosity, permeability and compressibility
     std::function
@@ -1167,13 +1167,17 @@ void LayerMovementProblem<dim>::assemble_F()
             const double old_VES=temp_old_overburden-old_pressure_at_quad[q_point]-old_hydrostatic;
 
 
-            rhs_at_quad[q_point] = -1.*dphidt /(1. - phi);
+            //rhs_at_quad[q_point] = -1.*dphidt /(1. - phi);
            //
          //   pcout<<"dphidt: "<<rhs_at_quad[q_point]<<std::endl;
            // rhs_at_quad[q_point] = (1./(1. - phi))*compaction_coefficient*(1. - phi)*(1. - phi)*(VES-old_VES)/time_step;
 //            pcout<<"other_rhs: "<<rhs_at_quad[q_point]<<std::endl;
             //rhs_at_quad[q_point] = (1./(1. - phi))*compaction_coefficient*phi*(VES-old_VES)/time_step;
-
+              rhs_at_quad[q_point] =  (1./(1. - phi))*compaction_coefficient*(1. - phi)*(1. - phi)*
+                                    ((1. - phi)*(2720-1024)*-9.81*sedimentation_rate[q_point]+
+                                      (pressure_at_quad[q_point]-old_pressure_at_quad[q_point])/time_step);
+           // pcout<<"dooverpreesure: "<<pressure_at_quad[q_point]-old_pressure_at_quad[q_point]<<std::endl;
+              pcout<<"rhs: "<<rhs_at_quad[q_point]<<std::endl;
 
             for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j)
@@ -1431,7 +1435,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             //pcout<<"dphidt:"<<dphidt<<std::endl;
             //pcout<<perm_k<<"  "<< material_data.fluid_viscosity<<" ";
             const double diffusion_coeff = (perm_k / material_data.fluid_viscosity);
-            const double rhs_coeff = compress/(1.-phi);
+            const double rhs_coeff = compress/((1.-phi));
             const double mass_matrix_coeff = rhs_coeff;
            // pcout<<"rhs_Ccoeff"<<rhs_coeff<<std::endl;
             const double additional_overburden = 9.81*bulk_deposit*-1.*sedimentation_rates[q_point]; //[M L^-1 T^-3]
@@ -2375,15 +2379,15 @@ void LayerMovementProblem<dim>::run()
     // initialize level set solver
     // we use some hardcode defaults for now
 
-    const double min_h = GridTools::minimal_cell_diameter(triangulation) / std::sqrt(2);
+    min_h = GridTools::minimal_cell_diameter(triangulation) / std::sqrt(2);
 
     //We make the following choice. We set the cfl condition to 1/2 and then we have the
     //Level set run twice. So the dt for the level set solver is dt_physics=2*dt_ls
 
-    const double cfl = 1./3;//0.5; //parameters.cfl;
+    const double cfl = 1./2;//0.5; //parameters.cfl;
     const double umax = base_sedimentation_rate;  //max_sedRate
     const double time_step_ls = cfl * min_h / umax;
-    time_step=3*time_step_ls;
+    time_step=2*time_step_ls;
     // pcout<<"min_h"<<min_h;
 
 
@@ -2451,7 +2455,7 @@ void LayerMovementProblem<dim>::run()
         //We evolve the ls TWO times  per time_step for the physics
          //DEBUG CONSTANT SPEED
          //locally_relevant_solution_F = -1.*base_sedimentation_rate;
-         for(int h=0;h<3;++h)
+         for(int h=0;h<2;++h)
           {
             TimerOutput::Scope t(computing_timer, "Total LS");
             for(int i=0; i<n_active_layers; ++i)
