@@ -1295,6 +1295,9 @@ void LayerMovementProblem<dim>::setup_material_configuration()
 
     // std::vector<double> id_sum(5);
     std::vector<double> id_sum(n_layers, 0);
+    Point<dim> interface_depth;
+
+
 
     for (auto cell : filter_iterators(dof_handler_LS.active_cell_iterators(), IteratorFilters::LocallyOwnedCell())) {
 
@@ -1313,6 +1316,11 @@ void LayerMovementProblem<dim>::setup_material_configuration()
                 Assert(-1.5 < LS_at_quad[i][q_point], ExcInternalError());
                 //do the y=2x-1 switch so the -/+ still works
                 id_sum[i] += 2*LS_at_quad[i][q_point]-1;
+                if(LS_at_quad[i][q_point]-0.5< 0.01)
+                  {
+                    interface_depth= fe_values.quadrature_point(q_point);
+
+                  }
             }
             ++i;
             //TODO representation of interface (0 level set or 0.5, etc.) needs to be taken
@@ -1334,6 +1342,8 @@ void LayerMovementProblem<dim>::setup_material_configuration()
         cell->set_material_id(counter);
 
     } // end cell loop
+    pcout<<std::endl<<"Interface depth"<<
+           interface_depth[1]<<std::endl;
 }
 
 template <int dim>
@@ -1436,7 +1446,7 @@ void LayerMovementProblem<dim>::assemble_matrices_P()
             //Assert(dphidt <= 0, ExcInternalError());
             //pcout<<"dphidt:"<<dphidt<<std::endl;
             //pcout<<perm_k<<"  "<< material_data.fluid_viscosity<<" ";
-            const double diffusion_coeff = (perm_k / (material_data.fluid_viscosity*sec_in_year) );
+            const double diffusion_coeff = (perm_k *sec_in_year) / (material_data.fluid_viscosity) ;
             const double rhs_coeff = compress/((1.-phi));
             const double mass_matrix_coeff = rhs_coeff;
            // pcout<<"rhs_Ccoeff"<<rhs_coeff<<std::endl;
@@ -1812,6 +1822,8 @@ void LayerMovementProblem<dim>::output_vectors()
     data_out.add_data_vector(locally_relevant_solution_Sigma, "Sigma");
     data_out.add_data_vector(old_locally_relevant_solution_Sigma, "old_Sigma");
     data_out.add_data_vector(locally_relevant_solution_F, "F");
+    data_out.add_data_vector(temp_locally_relevant_solution_P, "temp_P");
+    data_out.add_data_vector(temp_locally_relevant_solution_Sigma, "temp_sigma");
 
     //abuse the temp_locally_relevant_Sigma ghosted vector to output non-ghosted rhs_Sigma
 //    temp_locally_relevant_solution_Sigma=rhs_Sigma;
@@ -2348,7 +2360,7 @@ void LayerMovementProblem<dim>::run()
   constexpr double seconds_in_Myear{60*60*24*365.25*1e6};
   pcout<<"CPPLS running in "<<dim<<" dimensions"<<std::endl;
   sec_in_year=60*60*24*365.25;
-  grav_acc=9.81*sec_in_year*sec_in_year;
+  grav_acc=9.81;
 
 
     //this sets porosity, compressibility, permeability based on choices in parameter file
