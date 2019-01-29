@@ -1119,15 +1119,15 @@ void LayerMovementProblem<dim>::assemble_F()
 
         cell_rhs = 0;
         cell_matrix = 0;
-        const double delta = 0.5 * cell->diameter();
+        const double delta = 0.1 * cell->diameter();
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
             point_for_depth = fe_values.quadrature_point(q_point);
-            const double hydrostatic = 9.81 * material_data.fluid_density *
+            const double hydrostatic = grav_acc * material_data.fluid_density *
                                        (parameters.box_size - point_for_depth[dim-1]);
-            const double old_hydrostatic = 9.81 * material_data.fluid_density *
-                                       //(parameters.box_size - (point_for_depth[dim-1]+(-1.*sedimentation_rate[q_point]*time_step)));//(old_speed_at_quad[q_point]*time_step)));
-                                      (parameters.box_size - (point_for_depth[dim-1]+(-1.*speed_at_quad[q_point]*time_step)));//()));
+            const double old_hydrostatic = grav_acc * material_data.fluid_density *
+                                       (parameters.box_size - (point_for_depth[dim-1]+(-1.*sedimentation_rate[q_point]*time_step)));//(old_speed_at_quad[q_point]*time_step)));
+                                    //  (parameters.box_size - (point_for_depth[dim-1]+(-1.*speed_at_quad[q_point]*time_step)));//()));
 
             Assert(0 < hydrostatic, ExcInternalError());
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
