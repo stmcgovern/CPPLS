@@ -1736,8 +1736,6 @@ void LayerMovementProblem<dim>::solve_time_step_T()
 template <int dim>
 bool LayerMovementProblem<dim>::estimate_nl_error()
 {
-  const double tolerance = 10e-4; //parameters.
-  double residual = 1;
 
 }
 
@@ -2392,7 +2390,7 @@ void LayerMovementProblem<dim>::run()
     const unsigned int maxiter = parameters.maxiter;
 
     //const SedimentationRate SedRate(parameters);
-    const double base_sedimentation_rate = 1000./seconds_in_Myear * sec_in_year;// ;parameters.base_sedimentation_rate;
+    const double base_sedimentation_rate = parameters.base_sedimentation_rate;
     // initialize level set solver
     // we use some hardcode defaults for now
 
@@ -2401,10 +2399,14 @@ void LayerMovementProblem<dim>::run()
     //We make the following choice. We set the cfl condition to 1/2 and then we have the
     //Level set run twice. So the dt for the level set solver is dt_physics=2*dt_ls
 
-    const double cfl = 1./2;//0.5; //parameters.cfl;
+    //n_reps is for the number of repetitions of the LS time stepping per "physical time step"
+    //The CFL is independent of this.
+    const double n_reps=parameters.n_reps;
+    const double cfl =parameters.cfl;
     const double umax = base_sedimentation_rate;  //max_sedRate
     const double time_step_ls = cfl * min_h / umax;
-    time_step=2*time_step_ls;
+    time_step=n_reps*time_step_ls/cfl;
+    const double n_marches = n_reps/cfl;
     // pcout<<"min_h"<<min_h;
 
 
@@ -2489,19 +2491,23 @@ void LayerMovementProblem<dim>::run()
                 layers[i]->get_unp1(locally_relevant_solution_LS_0);
                 (*layers_solutions[i])=locally_relevant_solution_LS_0;
             }
-            display_vectors();
+           // display_vectors();
           }
 
         // set material ids based on locally_relevant_solution_LS
         setup_material_configuration(); // TODO: move away from cell id to values at quad points
 
-        if(timestep_number>=1)
-        {
-          prepare_advance_old_vectors();
-          advance_old_vectors(old_locally_relevant_solution_P);
-          //advance_old_vectors(old_locally_relevant_solution_Sigma);
-          //advance_old_vectors(old_locally_relevant_solution_T);
 
+        if (parameters.use_advance)
+        {
+          if(timestep_number>=1)
+          {
+            prepare_advance_old_vectors();
+            advance_old_vectors(old_locally_relevant_solution_P);
+            //advance_old_vectors(old_locally_relevant_solution_Sigma);
+            //advance_old_vectors(old_locally_relevant_solution_T);
+
+          }
         }
 
         //prepare for nonlinear Picard iteration

@@ -14,6 +14,7 @@ class Parameters
 public:
     bool compute_temperature;
     bool linear_in_void_ratio;
+    bool use_advance;
 
     unsigned int dimension;
     double base_sedimentation_rate;
@@ -28,10 +29,11 @@ public:
     unsigned int degree;
     unsigned int degree_LS;
 
-    double start_time;
     double stop_time;
     double theta;
     double cfl;
+    unsigned int n_reps;
+
     double nl_tol;
     unsigned int maxiter;
 

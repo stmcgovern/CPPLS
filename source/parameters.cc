@@ -15,6 +15,9 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
     parameter_handler.declare_entry
     ("linear_in_void_ratio", "true", Patterns::Bool(), "If true use a compaction law "
      "that is linear in the void ratio. If false default to Athy's law");
+    parameter_handler.declare_entry
+    ("use_advance", "true", Patterns::Bool(), "If true use the advance_old_vectors routine");
+
 
 
   }
@@ -62,25 +65,25 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
         ("initial_refinement_level", "1", Patterns::Integer(1),
          "Initial number of levels in the mesh.");
         parameter_handler.declare_entry
-        ("degree", "1", Patterns::Integer(1),
+        ("degree", "1", Patterns::Integer(1,5),
          "Finite element order of physical quantity dof handler");
         parameter_handler.declare_entry
-        ("degree_LS", "1", Patterns::Integer(1), "Finite element order of Level set solver.");
+        ("degree_LS", "1", Patterns::Integer(1,5), "Finite element order of Level set solver.");
     }
     parameter_handler.leave_subsection();
 
     parameter_handler.enter_subsection("Time Step");
     {
-
-        parameter_handler.declare_entry
-        ("start_time", "0.0", Patterns::Double(0.0), "Start time.");
         parameter_handler.declare_entry
         ("stop_time", "1.0", Patterns::Double(1.0), "Stop time.");
 
         parameter_handler.declare_entry
-        ("theta", "0.5",Patterns::Double(0.5), "Theta-Scheme value 0 explicit, 1/2 CN, 1 implicit" );
+        ("theta", "0.5",Patterns::Double(0,1), "Theta-Scheme value 0 explicit, 1/2 CN, 1 implicit" );
         parameter_handler.declare_entry
-        ("cfl","0.5", Patterns::Double(0.5), "cfl condition constant for time step, both X and LS");
+        ("cfl","0.5", Patterns::Double(0,1), "cfl condition constant for time step, both X and LS");
+        parameter_handler.declare_entry
+        ("n_reps","1", Patterns::Integer(1,100),
+         "the number of times the LS time stepping is run each physical time step");
     }
     parameter_handler.leave_subsection();
 
@@ -91,7 +94,7 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
       parameter_handler.declare_entry
       ("nl_tol","1e-8", Patterns::Double(0,1), "nonlinear loop convergence tolerance");
       parameter_handler.declare_entry
-      ("maxiter","20", Patterns::Integer(1,30), "maximum nonlinear iterations");
+      ("maxiter","20", Patterns::Integer(1,300), "maximum nonlinear iterations");
     }
     parameter_handler.leave_subsection();
 
@@ -119,6 +122,7 @@ void Parameters::read_parameter_file(const std::string &file_name)
     {
       compute_temperature = parameter_handler.get_bool("compute_temperature");
       linear_in_void_ratio = parameter_handler.get_bool("linear_in_void_ratio");
+      use_advance = parameter_handler.get_bool("use_advance");
     }
     parameter_handler.leave_subsection();
 
@@ -152,10 +156,10 @@ void Parameters::read_parameter_file(const std::string &file_name)
 
     parameter_handler.enter_subsection("Time Step");
     {
-        start_time = parameter_handler.get_double("start_time");
         stop_time = parameter_handler.get_double("stop_time");
         theta = parameter_handler.get_double("theta");
         cfl = parameter_handler.get_double("cfl");
+        n_reps = parameter_handler.get_integer("n_reps");
     }
     parameter_handler.leave_subsection();
 

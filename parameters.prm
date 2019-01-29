@@ -1,8 +1,11 @@
 subsection General
 #compute the temperature field, true/false
-  set compute_temperature = false
+  set compute_temperature = true
 #use linear in void ratio compaction law or if false default to Athy's law
   set linear_in_void_ratio = true
+#use the advance_old_vectors routine to shift the old pressure onto current grid
+#experimental
+  set use_advance = true
 end
 
 
@@ -45,22 +48,22 @@ subsection Finite Element
 end
 
 subsection Time Step
-#start time of simulation (s)
-  set start_time = 0.0
 #end time of simulation (year)  - note: 3.147e13 s = 1 Ma
   set stop_time = 1e6
 # for theta scheme for time stepping in P and T,
 # 1/2 -> Crank-Nicolson,  1 -> implicit Euler, 0 -> Explicit Euler
-  set theta = 1
+  set theta =1
 # stability condition for the (SSP3) explicit time stepping in LS
   set cfl = 0.5
+# run the LS time stepping "reps" times for each "physical" time step
+  set n_reps = 10
 end
 
 subsection Nonlinear Solver Picard
 # solution tolerance
-  set nl_tol = 1e-4
+  set nl_tol = 1e-5
 # maximum iterations
-  set maxiter = 2
+  set maxiter = 100
 end
 
 
