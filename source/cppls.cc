@@ -852,7 +852,7 @@ void LayerMovementProblem<dim>::initial_conditions()
     const double min_h = GridTools::minimal_cell_diameter(triangulation) / std::sqrt(2);
     pcout <<"min_h is:"<<min_h<<std::endl;
 
-    VectorTools::interpolate(dof_handler_LS, Initial_LS<dim>(min_h, parameters.box_size),
+    VectorTools::interpolate(dof_handler_LS, Initial_LS<dim>(min_h/100., parameters.box_size),
                              completely_distributed_solution_LS_0);
 
     constraints_LS.distribute(completely_distributed_solution_LS_0);
@@ -1652,24 +1652,24 @@ void LayerMovementProblem<dim>::forge_system_T()
 
     forcing_terms.reinit(locally_owned_dofs, mpi_communicator);
 
-    old_locally_relevant_solution_T = locally_relevant_solution_T;
+    //old_locally_relevant_solution_T = locally_relevant_solution_T;
     mass_matrix_T.vmult(system_rhs_T, old_locally_relevant_solution_T);
 
     laplace_matrix_T.vmult(tmp, old_locally_relevant_solution_T);
     //  pcout << "laplace symmetric: " << laplace_matrix.is_symmetric()<<std::endl;
-    system_rhs_T.add(-(1 - theta) * time_step, tmp);
+    system_rhs_T.add(-(1. - theta) * time_step, tmp);
 
     forcing_terms.add(time_step * theta, rhs_T);
 
-    forcing_terms.add(time_step * (1 - theta), old_rhs_T);
+   forcing_terms.add(time_step * (1. - theta), old_rhs_T);
 
     system_rhs_T += forcing_terms;
-    // system_matrix.compress (VectorOperation::add);
+   // system_matrix.compress (VectorOperation::add);
 
     system_matrix_T.copy_from(mass_matrix_T);
     // system_matrix.compress (VectorOperation::add);
 
-    system_matrix_T.add(laplace_matrix_T, time_step * (1 - theta));
+    system_matrix_T.add(laplace_matrix_T, time_step * theta);
 }
 
 template <int dim>
@@ -1714,6 +1714,7 @@ void LayerMovementProblem<dim>::prepare_next_time_step()
     old_locally_relevant_solution_Sigma=locally_relevant_solution_Sigma;
     old_locally_relevant_solution_T=locally_relevant_solution_T;
     old_rhs_P=rhs_P;
+    old_rhs_T=rhs_T;
 }
 
 template <int dim>
@@ -2519,11 +2520,9 @@ void LayerMovementProblem<dim>::run()
         // Solve temperature (coefficients depend on porosity, and TODO: should influence viscosity)
         if (compute_temperature)
           {
-          pcout <<"TEMPTMEEPRPERPERPEPRPERPE";
-
             assemble_matrices_T();
             forge_system_T();
-           solve_time_step_T();
+            solve_time_step_T();
           }
         old_locally_relevant_solution_F=locally_relevant_solution_F;
 
