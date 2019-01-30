@@ -98,6 +98,14 @@ void Parameters::configure_parameter_handler(ParameterHandler &parameter_handler
     }
     parameter_handler.leave_subsection();
 
+    parameter_handler.enter_subsection("Linear Solver Tolerances");
+    {
+      parameter_handler.declare_entry
+      ("sigma_tol","1e-6", Patterns::Double(0,1), "overburden solver tolerance");
+
+    }
+    parameter_handler.leave_subsection();
+
 
 
     parameter_handler.enter_subsection("Output");
@@ -170,6 +178,15 @@ void Parameters::read_parameter_file(const std::string &file_name)
 
     }
     parameter_handler.leave_subsection();
+
+
+    parameter_handler.enter_subsection("Linear Solver Tolerances");
+    {
+      sigma_tol=parameter_handler.get_double("sigma_tol");
+
+    }
+    parameter_handler.leave_subsection();
+
 
     parameter_handler.enter_subsection("Output");
     {

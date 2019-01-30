@@ -66,7 +66,13 @@ subsection Nonlinear Solver Picard
   set maxiter = 100
 end
 
-
+subsection Linear Solver Tolerances
+#    set p_tol = 1e-12
+#    set t_tol = 1e-12
+    set sigma_tol = 1e-6
+#    set F_tol =1e-12
+#    set LS_tol = 1e-10
+end
 
 subsection Output
 #ouput solution vectors every x time steps

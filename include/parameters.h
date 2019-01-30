@@ -37,6 +37,8 @@ public:
     double nl_tol;
     unsigned int maxiter;
 
+    double sigma_tol;
+
     unsigned int output_interval;
 
     void read_parameter_file(const std::string &file_name);
