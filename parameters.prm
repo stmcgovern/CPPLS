@@ -1,11 +1,11 @@
 subsection General
 #compute the temperature field, true/false
-  set compute_temperature = true
+  set compute_temperature = false
 #use linear in void ratio compaction law or if false default to Athy's law
   set linear_in_void_ratio = true
 #use the advance_old_vectors routine to shift the old pressure onto current grid
 #experimental
-  set use_advance = true
+  set use_advance = false
 end
 
 
@@ -17,7 +17,7 @@ subsection Geometry
 #side length of the square/cube (m)
   set box_size = 1000
 #if rectangular (x,y,z) dimensions (m)- y ignored in 2D
-  set x_length = 50
+  set x_length = 10
   set y_length = 50
   set z_length = 1000
 #set the sedimentation rate (m/year)
@@ -56,7 +56,7 @@ subsection Time Step
 # stability condition for the (SSP3) explicit time stepping in LS
   set cfl = 0.5
 # run the LS time stepping "reps" times for each "physical" time step
-  set n_reps = 10
+  set n_reps = 1
 end
 
 subsection Nonlinear Solver Picard
@@ -76,5 +76,5 @@ end
 
 subsection Output
 #ouput solution vectors every x time steps
-  set output_interval = 1
+  set output_interval = 100
 end

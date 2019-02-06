@@ -1126,8 +1126,8 @@ void LayerMovementProblem<dim>::assemble_F()
             const double hydrostatic = grav_acc * material_data.fluid_density *
                                        (parameters.box_size - point_for_depth[dim-1]);
             const double old_hydrostatic = grav_acc * material_data.fluid_density *
-                                       (parameters.box_size - (point_for_depth[dim-1]+(-1.*sedimentation_rate[q_point]*time_step)));//(old_speed_at_quad[q_point]*time_step)));
-                                    //  (parameters.box_size - (point_for_depth[dim-1]+(-1.*speed_at_quad[q_point]*time_step)));//()));
+                                    //   (parameters.box_size - (point_for_depth[dim-1]+(-1.*sedimentation_rate[q_point]*time_step)));//(old_speed_at_quad[q_point]*time_step)));
+                                      (parameters.box_size - (point_for_depth[dim-1]+(-1.*speed_at_quad[q_point]*time_step)));//()));
 
             Assert(0 < hydrostatic, ExcInternalError());
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
@@ -1577,11 +1577,12 @@ void LayerMovementProblem<dim>::assemble_matrices_T()
         const double compaction_coefficient = material_data.get_compaction_coefficient(cell->material_id());
         const double rock_density = material_data.get_solid_density(cell->material_id());
         const double heat_capacity = material_data.get_heat_capacity(cell->material_id());
+  //      const double ther
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
             point_for_depth = fe_values.quadrature_point(q_point);
             const double hydrostatic = grav_acc * material_data.fluid_density *
-                                       (parameters.box_size - point_for_depth[dim-1]); // TODO make this dim independent
+                                       (parameters.box_size - point_for_depth[dim-1]); 
             const double phi = porosity(pressure_at_quad[q_point], overburden_at_quad[q_point], initial_porosity,
                                         compaction_coefficient, hydrostatic, material_id);
             //Assert(0 < phi < 1, ExcInternalError());
@@ -1591,8 +1592,9 @@ void LayerMovementProblem<dim>::assemble_matrices_T()
 
             //      fe_values.get_function_values(thermal_conductivity, thermal_conductivity_at_quad);
             // TODO
-            const double diff_coeff_at_quad = 10;
-            //  thermal_conductivity_at_quad[q_point] /(bulkheat_capacity_at_quad[q_point]*bulkdensity_at_quad[q_point] );
+            const double diff_coeff_at_quad = thermal_conductivity_at_quad[q_point]
+                                                /(bulk_hc
+                                                  *rho_b );
             const double rhs_at_quad = 0; // TODO bottom boundary flux from parameter file
 
             for (unsigned int i = 0; i < dofs_per_cell; ++i) {
@@ -2189,12 +2191,17 @@ void LayerMovementProblem<dim>::prepare_advance_old_vectors()
                                      IteratorFilters::LocallyOwnedCell()))
    {
 
+
         cell_B_matrix = 0;
         cell_mass_matrix =0;
         fe_values.reinit (cell);
 
+
         advection_field.value_list(fe_values.get_quadrature_points(), advection_directions);
         fe_values.get_function_values(locally_relevant_solution_F, speed_at_quad);
+
+        const double delta = 1 * cell->diameter();
+
 
         for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
         {
@@ -2203,12 +2210,13 @@ void LayerMovementProblem<dim>::prepare_advance_old_vectors()
                  for (unsigned int j=0; j<dofs_per_cell; ++j)
                    {
                        cell_B_matrix(i,j) += time_step* speed_at_quad[q_point] *
-                                            fe_values.shape_value(i, q_point) *
+                            (fe_values.shape_value(i, q_point)+ delta *(advection_directions[q_point])*fe_values.shape_grad(i,q_point)) *
+
                                             (advection_directions[q_point] *
                                             fe_values.shape_grad(j,q_point)) *
                                             fe_values.JxW(q_point);
 
-                       cell_mass_matrix(i,j) += fe_values.shape_value(i, q_point)
+                       cell_mass_matrix(i,j) +=  (fe_values.shape_value(i, q_point)+ delta *(advection_directions[q_point])*fe_values.shape_grad(i,q_point))
                                                * fe_values.shape_value(j, q_point)
                                                * fe_values.JxW(q_point);
                    }
@@ -2463,7 +2471,7 @@ void LayerMovementProblem<dim>::run()
 
         if (parameters.use_advance)
         {
-          if(timestep_number>=1)
+          if(timestep_number>=10)
           {
             prepare_advance_old_vectors();
             advance_old_vectors(old_locally_relevant_solution_P);
