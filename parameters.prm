@@ -17,7 +17,7 @@ subsection Geometry
 #side length of the square/cube (m)
   set box_size = 1000
 #if rectangular (x,y,z) dimensions (m)- y ignored in 2D
-  set x_length = 10
+  set x_length = 1000
   set y_length = 50
   set z_length = 1000
 #set the sedimentation rate (m/year)
@@ -40,7 +40,7 @@ end
 
 subsection Finite Element
 #number of initial global refinements - note: (2^dim)^initial_refinement_level = n_cells
-  set initial_refinement_level = 2
+  set initial_refinement_level = 5
 #finite element degree of the physical quantity dof_handler, FE_Q
   set degree = 2
 #finite element degree of the level set dof_handler, FE_Q
@@ -52,7 +52,7 @@ subsection Time Step
   set stop_time = 1e6
 # for theta scheme for time stepping in P and T,
 # 1/2 -> Crank-Nicolson,  1 -> implicit Euler, 0 -> Explicit Euler
-  set theta =1
+  set theta =0.5
 # stability condition for the (SSP3) explicit time stepping in LS
   set cfl = 0.5
 # run the LS time stepping "reps" times for each "physical" time step
@@ -63,7 +63,7 @@ subsection Nonlinear Solver Picard
 # solution tolerance
   set nl_tol = 1e-5
 # maximum iterations
-  set maxiter = 100
+  set maxiter = 30
 end
 
 subsection Linear Solver Tolerances

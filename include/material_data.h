@@ -75,7 +75,7 @@ private:
     const std::vector<double> compaction_coefficient
     {1e-200,8e-8,4e-8,3e-8,5e-8, 1e-9,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Pa^-1
     const std::vector<double> depositional_periods
-    {0,0.2,0.3,0.125,0.375,9 ,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Ma [T]
+    {0,1,0.3,0.125,0.375,9 ,2e-9,1e-8,8e-8, 5e-9,3e-8,1e-8,8e-8}; //Ma [T]
 
 };
 }

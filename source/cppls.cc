@@ -1849,7 +1849,7 @@ int LayerMovementProblem<dim>::active_layers_in_time (double time)
   for (int i=1; i<=n_layers; ++i)
     {
       double layer_time = material_data.get_depositional_period(i);
-      sum_depositional_times+=layer_time*CPPLS::seconds_in_Myear;
+      sum_depositional_times+=layer_time*1e6;
       if(time<sum_depositional_times)
         {
           pcout<<"layer"<<i<<std::endl;
